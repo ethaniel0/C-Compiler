@@ -1,0 +1,21 @@
+my register conventions:
+$0: 0
+$1: for pseudo-instructions (not, li, etc)
+$2 - $3: return values
+$4 - $7: arguments
+$8 - $27: temporary variables
+$28: heap pointer
+$29: stack pointer
+$30: rstatus
+$31: return address
+
+Global variables / operations (anything not in a function):
+- stored in beginning of memory (1, 2, 3, etc.)
+- are all stored in memory
+- are assigned in an init function at top
+
+Function conventions:
+- all var registers are t-registers, no need to save on stack prior to function call
+- clear all variables in registers before function call, save to stack (decrease and increase sp as needed)
+- restore needed variables from stack after a function call
+- no need to restore variables at end of function, just return
