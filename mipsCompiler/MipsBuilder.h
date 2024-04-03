@@ -19,15 +19,16 @@ private:
     void filterDoubleJJumps();
     void filterJToNext();
     void filterJs();
-    void filterUnusedLws();
 public:
     MipsBuilder() = default;
     void addInstruction(Instruction* instr, const std::string& label);
+    void prependInstruction(Instruction* instr);
     std::string genUnnamedLabel();
     void linkLabels();
     void simplify();
     std::vector<Instruction*> getInstructions();
     std::string export_str();
+    std::vector<uint32_t> export_mem();
 };
 
 #endif //I2C2_MIPSBUILDER_H

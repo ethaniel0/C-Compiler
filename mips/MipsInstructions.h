@@ -6,6 +6,7 @@
 #define I2C2_MIPSINSTRUCTIONS_H
 
 #include <utility>
+#include <bitset>
 
 #include "MipsRunner.h"
 
@@ -39,14 +40,23 @@ public:
     std::string export_str() override{
         return "add $" + std::to_string(rd) + ", $" + std::to_string(rs) + ", $" + std::to_string(rt);
     }
+    uint32_t export_mem() override{
+        uint8_t opcode = 0;
+        uint8_t rd = this->rd & 0b11111;
+        uint8_t rs = this->rs & 0b11111;
+        uint8_t rt = this->rt & 0b11111;
+        uint8_t shamt = 0;
+        uint8_t aluop = 0;
+        return opcode << 27 | rd << 22 | rs << 17 | rt << 12 | shamt << 7 | aluop << 2;
+    }
 };
 
 class InstrAddi : public Instruction{
 private:
     uint8_t rd, rs;
-    int16_t imm;
+    int imm;
 public:
-    InstrAddi(uint8_t rd, uint8_t rs, int16_t imm): Instruction(I_ADDI){
+    InstrAddi(uint8_t rd, uint8_t rs, int imm): Instruction(I_ADDI){
         this->rd = rd;
         this->rs = rs;
         this->imm = imm;
@@ -62,6 +72,12 @@ public:
     }
     std::string export_str() override{
         return "addi $" + std::to_string(rd) + ", $" + std::to_string(rs) + ", " + std::to_string(imm);
+    }
+    uint32_t export_mem() override{
+        uint8_t opcode = 0b00101;
+        uint8_t rd = this->rd & 0b11111;
+        uint8_t rs = this->rs & 0b11111;
+        return opcode << 27 | rd << 22 | rs << 17 | (imm & 0b11111111111111111);
     }
 
 };
@@ -89,6 +105,15 @@ public:
     std::string export_str() override{
         return "sub $" + std::to_string(rd) + ", $" + std::to_string(rs) + ", $" + std::to_string(rt);
     }
+    uint32_t export_mem() override{
+        uint8_t opcode = 0;
+        uint8_t rd = this->rd & 0b11111;
+        uint8_t rs = this->rs & 0b11111;
+        uint8_t rt = this->rt & 0b11111;
+        uint8_t shamt = 0;
+        uint8_t aluop = 1;
+        return opcode << 27 | rd << 22 | rs << 17 | rt << 12 | shamt << 7 | aluop << 2;
+    }
 };
 
 class InstrAnd : public Instruction{
@@ -106,6 +131,15 @@ public:
     std::string export_str() override{
         return "and $" + std::to_string(rd) + ", $" + std::to_string(rs) + ", $" + std::to_string(rt);
     }
+    uint32_t export_mem() override{
+        uint8_t opcode = 0;
+        uint8_t rd = this->rd & 0b11111;
+        uint8_t rs = this->rs & 0b11111;
+        uint8_t rt = this->rt & 0b11111;
+        uint8_t shamt = 0;
+        uint8_t aluop = 2;
+        return opcode << 27 | rd << 22 | rs << 17 | rt << 12 | shamt << 7 | aluop << 2;
+    }
 };
 
 class InstrOr : public Instruction{
@@ -122,6 +156,15 @@ public:
     }
     std::string export_str() override{
         return "or $" + std::to_string(rd) + ", $" + std::to_string(rs) + ", $" + std::to_string(rt);
+    }
+    uint32_t export_mem() override{
+        uint8_t opcode = 0;
+        uint8_t rd = this->rd & 0b11111;
+        uint8_t rs = this->rs & 0b11111;
+        uint8_t rt = this->rt & 0b11111;
+        uint8_t shamt = 0;
+        uint8_t aluop = 3;
+        return opcode << 27 | rd << 22 | rs << 17 | rt << 12 | shamt << 7 | aluop << 2;
     }
 };
 
@@ -141,6 +184,13 @@ public:
     std::string export_str() override{
         return "sll $" + std::to_string(rd) + ", $" + std::to_string(rs) + ", " + std::to_string(shamt);
     }
+    uint32_t export_mem() override{
+        uint8_t opcode = 0;
+        uint8_t rd = this->rd & 0b11111;
+        uint8_t rs = this->rs & 0b11111;
+        uint8_t aluop = 0b00100;
+        return opcode << 27 | rd << 22 | rs << 17 | 0 << 12 | (shamt & 0b11111) << 7 | aluop << 2;
+    }
 };
 
 class InstrSra : public Instruction{
@@ -158,6 +208,13 @@ public:
     }
     std::string export_str() override{
         return "sra $" + std::to_string(rd) + ", $" + std::to_string(rs) + ", " + std::to_string(shamt);
+    }
+    uint32_t export_mem() override{
+        uint8_t opcode = 0;
+        uint8_t rd = this->rd & 0b11111;
+        uint8_t rs = this->rs & 0b11111;
+        uint8_t aluop = 0b00101;
+        return opcode << 27 | rd << 22 | rs << 17 | 0 << 12 | (shamt & 0b11111) << 7 | aluop << 2;
     }
 };
 
@@ -182,6 +239,14 @@ public:
     }
     std::string export_str() override{
         return "mul $" + std::to_string(rd) + ", $" + std::to_string(rs) + ", $" + std::to_string(rt);
+    }
+    uint32_t export_mem() override{
+        uint8_t opcode = 0;
+        uint8_t rd = this->rd & 0b11111;
+        uint8_t rs = this->rs & 0b11111;
+        uint8_t rt = this->rt & 0b11111;
+        uint8_t aluop = 0b00110;
+        return opcode << 27 | rd << 22 | rs << 17 | rt << 12 | 0 << 7 | aluop << 2;
     }
 
 };
@@ -208,6 +273,14 @@ public:
     std::string export_str() override{
         return "div $" + std::to_string(rd) + ", $" + std::to_string(rs) + ", $" + std::to_string(rt);
     }
+    uint32_t export_mem() override{
+        uint8_t opcode = 0;
+        uint8_t rd = this->rd & 0b11111;
+        uint8_t rs = this->rs & 0b11111;
+        uint8_t rt = this->rt & 0b11111;
+        uint8_t aluop = 0b00111;
+        return opcode << 27 | rd << 22 | rs << 17 | rt << 12 | 0 << 7 | aluop << 2;
+    }
 
 };
 
@@ -225,10 +298,25 @@ public:
     }
     void execute(int32_t *dmem, RegisterFile* regfile, uint32_t* pc) override{
         uint32_t addr = regfile->get(rs) + imm;
-        dmem[addr] = regfile->get(rd);
+        if (addr < 4096) {
+            dmem[addr] = regfile->get(rd);
+        }
+        else {
+            bool writing_mode = addr >= 12288;
+            int pin = (addr & 0b111111);
+            uint32_t mode = regfile->get(rd);
+            std::string mode_str = writing_mode ? mode ? "OUTPUT" : "INPUT" : mode ? "HIGH" : "LOW";
+            printf("Writing pin %d %s to %s\n", pin, writing_mode ? "mode" : "value", mode_str.c_str());
+        }
     }
     std::string export_str() override{
         return "sw $" + std::to_string(rd) + ", " + std::to_string(imm) + "($" + std::to_string(rs) + ")";
+    }
+    uint32_t export_mem() override{
+        uint8_t opcode = 0b00111;
+        uint8_t rd = this->rd & 0b11111;
+        uint8_t rs = this->rs & 0b11111;
+        return opcode << 27 | rd << 22 | rs << 17 | (imm & 0b11111111111111111);
     }
 };
 
@@ -244,12 +332,23 @@ public:
     }
     void execute(int32_t *dmem, RegisterFile* regfile, uint32_t* pc) override{
         uint32_t addr = regfile->get(rs) + imm;
-        regfile->set(rd, dmem[addr]);
+        if (addr < 4096) {
+            regfile->set(rd, dmem[addr]);
+        }
+        else {
+            int pin = (addr & 0b111111);
+            printf("Reading pin %d\n", pin);
+        }
     }
     std::string export_str() override{
         return "lw $" + std::to_string(rd) + ", " + std::to_string(imm) + "($" + std::to_string(rs) + ")";
     }
-
+    uint32_t export_mem() override{
+        uint8_t opcode = 0b01000;
+        uint8_t rd = this->rd & 0b11111;
+        uint8_t rs = this->rs & 0b11111;
+        return opcode << 27 | rd << 22 | rs << 17 | (imm & 0b11111111111111111);
+    }
 };
 
 // JUMPS
@@ -280,6 +379,10 @@ public:
     }
     std::string export_str() override{
         return "j " + label;
+    }
+    uint32_t export_mem() override{
+        uint8_t opcode = 0b00001;
+        return opcode << 27 | (target & 0x7FFFFFF);
     }
 };
 
@@ -318,6 +421,12 @@ public:
     std::string export_str() override{
         return "bne $" + std::to_string(rd) + ", $" + std::to_string(rs) + ", " + label;
     }
+    uint32_t export_mem() override{
+        uint8_t opcode = 0b00010;
+        uint8_t rd = this->rd & 0b11111;
+        uint8_t rs = this->rs & 0b11111;
+        return opcode << 27 | rd << 22 | rs << 17 | (imm & 0b11111111111111111);
+    }
 };
 
 class InstrJr : public Instruction{
@@ -332,6 +441,11 @@ public:
     }
     std::string export_str() override{
         return "jr $" + std::to_string(rd);
+    }
+    uint32_t export_mem() override{
+        uint8_t opcode = 0b00100;
+        uint8_t rd = this->rd & 0b11111;
+        return opcode << 27 | rd << 22;
     }
 };
 
@@ -362,6 +476,10 @@ public:
     }
     std::string export_str() override{
         return "jal " + label;
+    }
+    uint32_t export_mem() override{
+        uint8_t opcode = 0b00011;
+        return opcode << 27 | (target & 0x7FFFFFF);
     }
 };
 
@@ -399,7 +517,12 @@ public:
     std::string export_str() override{
         return "blt $" + std::to_string(rd) + ", $" + std::to_string(rs) + ", " + label;
     }
-
+    uint32_t export_mem() override{
+        uint8_t opcode = 0b00110;
+        uint8_t rd = this->rd & 0b11111;
+        uint8_t rs = this->rs & 0b11111;
+        return opcode << 27 | rd << 22 | rs << 17 | (imm & 0b11111111111111111);
+    }
 };
 
 // SPECIAL
@@ -431,6 +554,10 @@ public:
     std::string export_str() override{
         return "bex " + label;
     }
+    uint32_t export_mem() override{
+        uint8_t opcode = 0b10110;
+        return opcode << 27 | (target & 0x7FFFFFF);
+    }
 };
 
 class InstrSetx : public Instruction{
@@ -445,6 +572,10 @@ public:
     }
     std::string export_str() override{
         return "setx " + std::to_string(target);
+    }
+    uint32_t export_mem() override{
+        uint8_t opcode = 0b10101;
+        return opcode << 27 | (target & 0x7FFFFFF);
     }
 };
 
@@ -463,7 +594,6 @@ public:
     std::string export_str() override{
         return "testlog $" + std::to_string(rd);
     }
-
 };
 
 #endif //I2C2_MIPSINSTRUCTIONS_H

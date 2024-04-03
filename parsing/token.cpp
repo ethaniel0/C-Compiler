@@ -100,6 +100,8 @@ std::vector<Token> tokenize(std::string source) {
     int current = 0;
     int line = 1;
 
+    std::map<std::string, std::vector<Token>> defines;
+
     Token none_token = Token(TokenType::TYPE_NONE, TokenValue::NONE, "", line);
 
     bool is_neg = false;
@@ -179,7 +181,7 @@ std::vector<Token> tokenize(std::string source) {
                     tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::MULT_EQ, "*=", line);
                     current++;
                 }
-                else if (prev_token->type != TokenType::TYPE_IDENTIFIER && prev_token->type != TokenType::TYPE_VALUE && prev_token->type != TokenType::TYPE_BRACKET){
+                else if (prev_token->type != TokenType::TYPE_IDENTIFIER && prev_token->type != TokenType::TYPE_VALUE && prev_token->val_type != TokenValue::RIGHT_PAREN){
                     tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::DEREF, "*", line);
                 }
                 else {
@@ -187,6 +189,12 @@ std::vector<Token> tokenize(std::string source) {
                 }
                 break;
             case '/':
+                if (current < source.size() - 1 && source.at(current + 1) == '/') {
+                    while (current < source.size() && source.at(current) != '\n') {
+                        current++;
+                    }
+                    break;
+                }
                 if (current < source.size() - 1 && source.at(current + 1) == '=') {
                     tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::DIV_EQ, "/=", line);
                     current++;
@@ -203,7 +211,7 @@ std::vector<Token> tokenize(std::string source) {
                     tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::AND, "&&", line);
                     current++;
                 }
-                else if (prev_token->type != TokenType::TYPE_IDENTIFIER && prev_token->type != TokenType::TYPE_VALUE && prev_token->type != TokenType::TYPE_BRACKET) {
+                else if (prev_token->type != TokenType::TYPE_IDENTIFIER && prev_token->type != TokenType::TYPE_VALUE && prev_token->val_type != TokenValue::RIGHT_PAREN){
                     tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::REF, "&", line);
                 }
                 else {
@@ -271,7 +279,6 @@ std::vector<Token> tokenize(std::string source) {
                     tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::EQ, "=", line);
                 }
                 break;
-
             default:
                 if (c == '"') {
                     current++;
@@ -307,8 +314,9 @@ std::vector<Token> tokenize(std::string source) {
                     tokens.emplace_back(TokenType::TYPE_VALUE, TokenValue::NUMBER, lexeme, line);
                     current--;
                 }
-                else if (isalpha(c)) {
-                    while (current < source.size() && isalnum(source.at(current))) {
+                else if (isalpha(c) || c == '_' || c == '#') {
+                    current++;
+                    while (current < source.size() && (isalnum(source.at(current)) || source.at(current) == '_')) {
                         current++;
                     }
                     std::string word = source.substr(start, current - start);
@@ -332,7 +340,34 @@ std::vector<Token> tokenize(std::string source) {
                     else if (word == "continue") tokens.emplace_back(TokenType::TYPE_KEYWORD, TokenValue::CONTINUE, word, line);
                     else if (word == "NULL") tokens.emplace_back(TokenType::TYPE_VALUE, TokenValue::NIL, word, line);
                     else if (word == "return") tokens.emplace_back(TokenType::TYPE_KEYWORD, TokenValue::RETURN, word, line);
+                    else if (word == "inline") tokens.emplace_back(TokenType::TYPE_KEYWORD, TokenValue::INLINE, word, line);
 
+                    else if (word == "__asm__") tokens.emplace_back(TokenType::TYPE_KEYWORD, TokenValue::ASM, word, line);
+
+                    else if (word == "#define"){
+                        std::string define_key = "";
+                        std::string define = "";
+                        current++;
+                        while (current < source.size() && source.at(current) == ' '){
+                            current++;
+                        }
+                        while (current < source.size() && source.at(current) != ' '){
+                            define_key += source.at(current);
+                            current++;
+                        }
+                        while (current < source.size() && source.at(current) == ' '){
+                            current++;
+                        }
+                        while (current < source.size() && source.at(current) != '\n'){
+                            define += source.at(current);
+                            current++;
+                        }
+
+                        defines[define_key] = tokenize(define);
+                    }
+                    else if (defines.find(word) != defines.end()){
+                        tokens.insert(tokens.end(), defines[word].begin(), defines[word].end());
+                    }
                     else {
                         tokens.emplace_back(TokenType::TYPE_IDENTIFIER, TokenValue::IDENTIFIER, word, line);
                     }

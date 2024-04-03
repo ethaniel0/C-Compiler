@@ -12,6 +12,10 @@ void MipsBuilder::addInstruction(Instruction *instr, const std::string &label) {
     }
 }
 
+void MipsBuilder::prependInstruction(Instruction *instr) {
+    instructions.insert(instructions.begin(), instr);
+}
+
 std::string MipsBuilder::genUnnamedLabel() {
     return "\"" + std::to_string(unnamedLabelCounter++) + "\"";
 }
@@ -92,9 +96,11 @@ void MipsBuilder::filterDoubleJJumps(){
         if (labels.find(labelTo) == labels.end())
             throw std::runtime_error("Label " + labelTo + " not found");
         bool result = replaceLabel(jLabel, labelTo);
-        if (!result) continue;
-        invLabels.erase(j);
-        instructions.erase(instructions.begin() + i);
+        if (result) {
+            invLabels.erase(j);
+            instructions.erase(instructions.begin() + i);
+            i--;
+        }
     }
 }
 
@@ -132,19 +138,6 @@ void MipsBuilder::simplify() {
     filterJs();
 }
 
-void MipsBuilder::filterUnusedLws() {
-//    for (int i = 0; i < instructions.size(); i++) {
-//        Instruction* instr = instructions[i];
-//        if (instr->type != InstructionType::I_LW) continue;
-//        auto* lw = (InstrLw*) instr;
-//        if (lw->reg == 0) {
-//            instructions.erase(instructions.begin() + i);
-//            i--;
-//        }
-//    }
-
-}
-
 std::vector<Instruction *> MipsBuilder::getInstructions() {
     return instructions;
 }
@@ -162,6 +155,15 @@ std::string MipsBuilder::export_str() {
             result += instr_to_label[instr] + ":\n";
         }
         result += instr->export_str() + "\n";
+    }
+    return result;
+}
+
+std::vector<uint32_t> MipsBuilder::export_mem() {
+    std::vector<uint32_t> result;
+    result.reserve(instructions.size());
+    for (Instruction *instr : instructions) {
+        result.push_back(instr->export_mem());
     }
     return result;
 }

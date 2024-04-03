@@ -46,10 +46,17 @@ class Scope {
 private:
     std::map<std::string, Token*> context;
     Scope* parentContext;
+    int depth = 0;
 
 public:
     explicit Scope(Scope* parent){
         this->parentContext = parent;
+        if (parent != nullptr){
+            depth = parent->depth + 1;
+        }
+        else {
+            depth = 0;
+        }
     }
     Token* find(const std::string& name){
         if (context.find(name) != context.end()){
@@ -63,6 +70,9 @@ public:
     }
     bool isBaseScope(){
         return parentContext == nullptr;
+    }
+    int getDepth(){
+        return depth;
     }
 
 };

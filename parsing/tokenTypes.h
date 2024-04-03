@@ -4,7 +4,9 @@
 
 #ifndef I2C2_TOKENTYPES_H
 #define I2C2_TOKENTYPES_H
-#include "tokenize.h"
+
+#include <string>
+#include <vector>
 
 enum TokenType {
     TYPE_NONE,
@@ -46,13 +48,13 @@ enum TokenValue {
     EQ, EQ_EQ,
 
     // literals and values
-    IDENTIFIER, STRING, NUMBER, CHARACTER, NIL, FUNCTION,
+    IDENTIFIER, STRING, NUMBER, CHARACTER, NIL, FUNCTION, ARRAY,
 
     // data types
-    INT, FLOAT, CHAR, DOUBLE, LONG, SHORT, VOID,
+    INT, FLOAT, CHAR, DOUBLE, LONG, SHORT, VOID, STRUCT,
 
     // Keywords
-    IF, ELSE, FOR, WHILE, BREAK, CONTINUE, RETURN
+    IF, ELSE, FOR, WHILE, BREAK, CONTINUE, RETURN, ASM, INLINE
 };
 
 std::string tokenTypeAsString(TokenType type);
@@ -66,7 +68,8 @@ public:
     std::string lexeme;
     int line;
     Token* parseParent;
-    int depth;
+    int depth; // for depth in expression parse tree
+    int track; // for general-purpose tracking stuff
 
     Token(TokenType type, TokenValue value, std::string lexeme, int line) {
         this->type = type;
@@ -75,10 +78,20 @@ public:
         this->line = line;
         this->parseParent = nullptr;
         this->depth = 0;
+        this->track = 0;
     }
 
     [[nodiscard]] std::string toString() const {
         return "<" + tokenTypeAsString(type) + " " + tokenValueAsString(val_type) + " " + lexeme + " line " + std::to_string(line) + ">";
+    }
+};
+
+class AsmToken : public Token {
+public:
+    std::string asmCode;
+
+    AsmToken(std::string code, int line) : Token(TokenType::TYPE_KEYWORD, TokenValue::ASM, "", line) {
+        this->asmCode = std::move(code);
     }
 };
 
@@ -139,12 +152,25 @@ public:
     }
 };
 
+class ArrayInitializationToken : public Token {
+public:
+    std::vector<Token*> values;
+    TokenValue valueType;
+
+    ArrayInitializationToken(std::vector<Token*> values, TokenValue valueType, int line) : Token(TokenType::TYPE_VALUE, ARRAY, "array", line) {
+        this->values = std::move(values);
+        this->valueType = valueType;
+    }
+
+};
+
 class DefinitionToken : public Token {
 public:
     std::string name;
     Token* value;
     TokenValue valueType;
     int refCount;
+    std::vector<Token*> dimensions;
 
     DefinitionToken(TokenValue valueType, std::string name, int line) : Token(TokenType::TYPE_OPERATOR, TokenValue::IDENTIFIER, "=", line) {
         this->valueType = valueType;
@@ -161,6 +187,7 @@ public:
     GroupToken* body;
     TokenValue returnType;
     int refCount;
+    bool is_inline;
 
     FunctionToken(TokenValue valueType, std::string name, std::vector<DefinitionToken*> parameters, int line) : Token(TokenType::TYPE_KEYWORD, TokenValue::FUNCTION, "function", line) {
         this->name = std::move(name);

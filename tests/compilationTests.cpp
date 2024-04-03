@@ -55,7 +55,7 @@ TEST(compilation, one_def){
     BreakScope breakScope;
     std::string result = compile_expr(&breakScope, def, &builder, &tracker);
 
-    uint8_t result_reg = tracker.getReg(result);
+    uint8_t result_reg = tracker.getReg(result, -1);
 
     builder.linkLabels();
 
@@ -94,7 +94,7 @@ TEST(compilation, def_with_expression){
     BreakScope breakScope;
     std::string result = compile_expr(&breakScope, def, &builder, &tracker);
 
-    uint8_t result_reg = tracker.getReg(result);
+    uint8_t result_reg = tracker.getReg(result, -1);
 
     builder.linkLabels();
 
@@ -124,8 +124,8 @@ TEST(compilation, two_dependent_defs){
     compile_expr(&breakScope, ast[1], &builder, &tracker);
 
 
-    uint8_t result_reg1 = tracker.getReg("a");
-    uint8_t result_reg2 = tracker.getReg("b");
+    uint8_t result_reg1 = tracker.getReg("a", -1);
+    uint8_t result_reg2 = tracker.getReg("b", -1);
 
     builder.linkLabels();
 
@@ -147,10 +147,10 @@ int test_with_regs(std::string source, int cycles, std::map<std::string, int32_t
     Scope scope(nullptr);
     std::vector<Token*> ast = parse(tokens_iter, &scope);
 
-    sort_ast(&ast);
+    sort_ast(&ast, &scope);
 
     MipsBuilder builder;
-    builder.addInstruction(new InstrAddi(29, 29, 1023), "");
+    builder.addInstruction(new InstrAddi(29, 29, 2047), "");
     VariableTracker tracker(&builder);
     BreakScope breakScope;
     compile_instructions(&breakScope, ast, &builder, &tracker);
@@ -165,11 +165,11 @@ int test_with_regs(std::string source, int cycles, std::map<std::string, int32_t
 
     std::vector<Instruction*> instructions = builder.getInstructions();
 
-    MipsRunner runner(1024, instructions.data(), instructions.size());
+    MipsRunner runner(2048, instructions.data(), instructions.size());
     int num_cycles = runner.run(cycles);
 
     for (const auto& pair : expectedVarMap){
-        uint8_t result_reg = tracker.getReg(pair.first);
+        uint8_t result_reg = tracker.getReg(pair.first, -1, false);
         uint32_t reg_result = runner.get_reg(result_reg);
         EXPECT_EQ(reg_result, pair.second, %d)
     }
@@ -316,6 +316,214 @@ TEST(compilation, if_with_expr_gte){
     std::map<std::string, int32_t> valMap3 = {
             {"a", 1},
             {"b", 2}
+    };
+    test_with_regs(code3, 10, valMap3);
+}
+
+TEST(compilation, if_with_not){
+    char code[] = "int a = 1; "
+                   "int b = a;"
+                   "if (!a){"
+                   " b = 15;"
+                   "}";
+    std::map<std::string, int32_t> valMap = {
+            {"a", 1},
+            {"b", 1}
+    };
+    test_with_regs(code, 10, valMap);
+
+    char code2[] = "int a = 0; "
+                  "int b = a;"
+                  "if (!a){"
+                  " b = 16;"
+                  "}";
+    std::map<std::string, int32_t> valMap2 = {
+            {"a", 0},
+            {"b", 16}
+    };
+    test_with_regs(code2, 10, valMap2);
+
+}
+
+TEST(compilation, set_var_to_lt){
+    char code[] = "int a = 8; "
+                  "int b = 2;"
+                  "a = a < b;";
+    std::map<std::string, int32_t> valMap = {
+            {"a", 0},
+            {"b", 2}
+    };
+    test_with_regs(code, 10, valMap);
+
+    char code2[] = "int a = 8; "
+                  "int b = 2;"
+                  "a = b < a;";
+    std::map<std::string, int32_t> valMap2 = {
+            {"a", 1},
+            {"b", 2}
+    };
+    test_with_regs(code2, 10, valMap2);
+}
+
+TEST(compilation, set_var_to_gt){
+    char code[] = "int a = 8; "
+                  "int b = 2;"
+                  "a = a > b;";
+    std::map<std::string, int32_t> valMap = {
+            {"a", 1},
+            {"b", 2}
+    };
+    test_with_regs(code, 10, valMap);
+
+    char code2[] = "int a = 8; "
+                  "int b = 2;"
+                  "a = b > a;";
+    std::map<std::string, int32_t> valMap2 = {
+            {"a", 0},
+            {"b", 2}
+    };
+    test_with_regs(code2, 10, valMap2);
+}
+
+TEST(compilation, set_var_to_lte){
+    char code[] = "int a = 8; "
+                  "int b = 2;"
+                  "a = a <= b;";
+    std::map<std::string, int32_t> valMap = {
+            {"a", 0},
+            {"b", 2}
+    };
+    test_with_regs(code, 10, valMap);
+
+    char code2[] = "int a = 8; "
+                  "int b = 2;"
+                  "a = b <= a;";
+    std::map<std::string, int32_t> valMap2 = {
+            {"a", 1},
+            {"b", 2}
+    };
+    test_with_regs(code2, 10, valMap2);
+
+    char code3[] = "int a = 8; "
+                   "int b = 8;"
+                   "a = a <= b;";
+    std::map<std::string, int32_t> valMap3 = {
+            {"a", 1},
+            {"b", 8}
+    };
+    test_with_regs(code3, 10, valMap3);
+}
+
+TEST(compilation, set_var_to_gte){
+    char code[] = "int a = 8; "
+                  "int b = 2;"
+                  "a = a >= b;";
+    std::map<std::string, int32_t> valMap = {
+            {"a", 1},
+            {"b", 2}
+    };
+    test_with_regs(code, 10, valMap);
+
+    char code2[] = "int a = 8; "
+                  "int b = 2;"
+                  "a = b >= a;";
+    std::map<std::string, int32_t> valMap2 = {
+            {"a", 0},
+            {"b", 2}
+    };
+    test_with_regs(code2, 10, valMap2);
+
+    char code3[] = "int a = 8; "
+                   "int b = 8;"
+                   "a = a >= b;";
+    std::map<std::string, int32_t> valMap3 = {
+            {"a", 1},
+            {"b", 8}
+    };
+    test_with_regs(code3, 10, valMap3);
+}
+
+TEST(compilation, set_var_to_eq_eq){
+    char code[] = "int a = 8; "
+                  "int b = 2;"
+                  "a = a == b;";
+    std::map<std::string, int32_t> valMap = {
+            {"a", 0},
+            {"b", 2}
+    };
+    test_with_regs(code, 10, valMap);
+
+    char code2[] = "int a = 8; "
+                  "int b = 2;"
+                  "a = b == a;";
+    std::map<std::string, int32_t> valMap2 = {
+            {"a", 0},
+            {"b", 2}
+    };
+    test_with_regs(code2, 10, valMap2);
+
+    char code3[] = "int a = 8; "
+                   "int b = 8;"
+                   "a = a == b;";
+    std::map<std::string, int32_t> valMap3 = {
+            {"a", 1},
+            {"b", 8}
+    };
+    test_with_regs(code3, 10, valMap3);
+}
+
+TEST(compilation, set_var_to_neq){
+    char code[] = "int a = 8; "
+                  "int b = 2;"
+                  "a = a != b;";
+    std::map<std::string, int32_t> valMap = {
+            {"a", 1},
+            {"b", 2}
+    };
+    test_with_regs(code, 10, valMap);
+
+    char code2[] = "int a = 8; "
+                  "int b = 2;"
+                  "a = b != a;";
+    std::map<std::string, int32_t> valMap2 = {
+            {"a", 1},
+            {"b", 2}
+    };
+    test_with_regs(code2, 10, valMap2);
+
+    char code3[] = "int a = 8; "
+                   "int b = 8;"
+                   "a = a != b;";
+    std::map<std::string, int32_t> valMap3 = {
+            {"a", 0},
+            {"b", 8}
+    };
+    test_with_regs(code3, 10, valMap3);
+}
+
+TEST(compilation, set_var_to_not){
+    char code[] = "int a = 8; "
+                  "int b = 2;"
+                  "a = !(a == b);";
+    std::map<std::string, int32_t> valMap = {
+            {"a", 1},
+            {"b", 2}
+    };
+    test_with_regs(code, 10, valMap);
+
+    char code2[] = "int b = 0;"
+                  "int a = !b;";
+    std::map<std::string, int32_t> valMap2 = {
+            {"a", 1},
+            {"b", 0}
+    };
+    test_with_regs(code2, 10, valMap2);
+
+    char code3[] = "int b = 8;"
+                   "int a = !b;";
+    std::map<std::string, int32_t> valMap3 = {
+            {"a", 0},
+            {"b", 8}
     };
     test_with_regs(code3, 10, valMap3);
 }
@@ -637,6 +845,258 @@ TEST(compilation, fibonacci_recursion){
     std::map<std::string, int32_t> valMap = {
             {"a", 8}
     };
-    int num_cycles = test_with_regs(code, 800, valMap);
-//    printf("cycles: %d\n", num_cycles);
+    test_with_regs(code, 800, valMap);
+}
+
+TEST(compilation, global_pointer_def){
+    char code[] = "int a = 6;"
+                  "int* b = &a;"
+                  "int c = *b;";
+    std::map<std::string, int32_t> valMap = {
+            {"c", 6}
+    };
+    test_with_regs(code, 10, valMap);
+}
+
+TEST(compilation, global_pointer_from_func){
+    char code[] = "int a = 6;"
+                  "int* foo(){"
+                  " return &a;"
+                  "}"
+                  "int* b = foo();"
+                  "a += 0;"
+                  "int c = *b;";
+    std::map<std::string, int32_t> valMap = {
+            {"a", 6},
+            {"c", 6}
+    };
+    test_with_regs(code, 20, valMap);
+}
+
+TEST(compilation, pointer_from_var_on_stack){
+    char code[] = "int a = 6;"
+                  "int foo(){"
+                  " int a = 7;"
+                  " int* b = &a;"
+                  " return *b;"
+                  "}"
+                  "int c = foo();";
+    std::map<std::string, int32_t> valMap = {
+            {"c", 7}
+    };
+    test_with_regs(code, 30, valMap);
+}
+
+TEST(compilation, set_pointer){
+    char code[] = "int a = 6;"
+                  "int* b = &a;"
+                  "*b = 7;"
+                  "a += 0";
+    std::map<std::string, int32_t> valMap = {
+            {"a", 7},
+    };
+    test_with_regs(code, 10, valMap);
+}
+
+TEST(compilation, set_pointer_in_function){
+    char code[] = "int a = 6;"
+                  "int foo(int* b){"
+                  "*b = 7;"
+                  "}"
+                  "foo(&a);"
+                  "a += 0";
+    std::map<std::string, int32_t> valMap = {
+            {"a", 7},
+    };
+    test_with_regs(code, 30, valMap);
+}
+
+TEST(compilation, function_with_four_variables){
+    char code[] = "int foo(int a, int b, int c, int d){"
+                  " return a + b + c + d;"
+                  "}"
+                  "int e = foo(1, 2, 3, 4);";
+    std::map<std::string, int32_t> valMap = {
+            {"e", 10}
+    };
+    test_with_regs(code, 30, valMap);
+}
+
+TEST(compilation, function_with_five_variables){
+    char code[] = "int foo(int a, int b, int c, int d, int e){"
+                  " return a + b + c + d + e;"
+                  "}"
+                  "int f = foo(1, 2, 3, 4, 5);";
+    std::map<std::string, int32_t> valMap = {
+            {"f", 15}
+    };
+    int cycles = test_with_regs(code, 40, valMap);
+}
+
+TEST(compilation, function_with_six_variables){
+    char code[] = "int foo(int a, int b, int c, int d, int e, int f){"
+                  " return (a + b + c + d + e) * f;"
+                  "}"
+                  "int g = foo(1, 2, 3, 4, 5, 6);";
+    std::map<std::string, int32_t> valMap = {
+            {"g", 90}
+    };
+    test_with_regs(code, 50, valMap);
+}
+
+TEST(compilation, function_with_six_variables_called_from_another_function){
+    char code[] = "int foo(int a, int b, int c, int d, int e, int f){"
+                  " return (a + b + c + d + e) * f;"
+                  "}"
+                  "int bar(int a, int b, int c, int d, int e, int f){"
+                  " return foo(a, b, c, d, e, f);"
+                  "}"
+                  "int g = bar(1, 2, 3, 4, 5, 6);";
+    std::map<std::string, int32_t> valMap = {
+            {"g", 90}
+    };
+    test_with_regs(code, 80, valMap);
+}
+
+TEST(compilation, simple_inline_assembly){
+    char code[] = "int a = 0;"
+                  "__asm__(\"addi (a), (a), 5\");"
+                  "a = 5;";
+    std::map<std::string, int32_t> valMap = {
+            {"a", 5}
+    };
+    test_with_regs(code, 10, valMap);
+}
+
+TEST(compilation, function_body_in_inline_assembly){
+    char code[] = "int a = 5;"
+                  "int foo(int a){"
+                  " __asm__(\"addi $2, $4, 5\");"
+                  "}"
+                  "a = foo(a);";
+    std::map<std::string, int32_t> valMap = {
+            {"a", 10}
+    };
+    test_with_regs(code, 20, valMap);
+}
+
+TEST(compilation, defining_a_function_fully_in_assembly){
+    char code[] = "int a = 5;"
+                  "int foo(int a);"
+                  "__asm__("
+                  "\"j after\""
+                  "\"foo: addi $2, $4, 5\""
+                  "\"jr $31\""
+                  "\"after: add $0 $0 $0\""
+                  ");"
+                  "a = foo(a);";
+    std::map<std::string, int32_t> valMap = {
+            {"a", 10}
+    };
+    test_with_regs(code, 20, valMap);
+}
+
+TEST(compilation, inline_assembly_load_word_and_store_word){
+    char code[] = "int a = 5;"
+                  "int b = 0;"
+                  ""
+                  "__asm__("
+                  "\"sw (a), 0((b))\""
+                  "\"lw (b), 0((b))\""
+                  ");";
+    std::map<std::string, int32_t> valMap = {
+            {"a", 5},
+            {"b", 5}
+    };
+    test_with_regs(code, 20, valMap);
+}
+
+TEST(compilation, array_definition_set_and_access){
+    char code[] = "int a[5];"
+                  "a[0] = 1;"
+                  "a[1] = 2;"
+                  "a[2] = 3;"
+                  "a[3] = 4;"
+                  "a[4] = 5;"
+                  ""
+                  "int b = a[0];"
+                  "int c = a[1];"
+                  "int d = a[2];"
+                  "int e = a[3];"
+                  "int f = a[4];";
+    std::map<std::string, int32_t> valMap = {
+            {"a", 0},
+            {"b", 1},
+            {"c", 2},
+            {"d", 3},
+            {"e", 4},
+            {"f", 5}
+    };
+    test_with_regs(code, 20, valMap);
+}
+
+TEST(compilation, array_definition_and_access_on_stack){
+    char code[] = "int a1 = 0;"
+                  "int a2 = 0;"
+                  "int a3 = 0;"
+                  "void foo(){"
+                    " int b[3];"
+                    " b[0] = 1;"
+                    " b[1] = 2;"
+                    " b[2] = 3;"
+                    ""
+                    " a1 = b[0];"
+                    " a2 = b[1];"
+                    " a3 = b[2];"
+                    "}"
+                    "foo();";
+
+    std::map<std::string, int32_t> valMap = {
+            {"a1", 1},
+            {"a2", 2},
+            {"a3", 3}
+    };
+    test_with_regs(code, 20, valMap);
+}
+
+TEST(compilation, array_definition_and_initialization){
+    char code[] = "int a[5] = {1, 2, 3, 4, 5};"
+                  ""
+                  "int b = a[0];"
+                  "int c = a[1];"
+                  "int d = a[2];"
+                  "int e = a[3];"
+                  "int f = a[4];";
+    std::map<std::string, int32_t> valMap = {
+            {"b", 1},
+            {"c", 2},
+            {"d", 3},
+            {"e", 4},
+            {"f", 5}
+    };
+    test_with_regs(code, 20, valMap);
+}
+
+TEST(compilation, array_definition_and_initialization_in_function){
+    char code[] =
+                  "int b = 0;"
+                  "int c = 0;"
+                  "int d = 0;"
+                  "int e = 0;"
+                  "void foo(){"
+                  " int a[5] = {1, 2, 3, 4, 5};"
+                  ""
+                  " b = a[0];"
+                  " c = a[1];"
+                  " d = a[2];"
+                  " e = a[3];"
+                  "}"
+                  "foo();";
+    std::map<std::string, int32_t> valMap = {
+            {"b", 1},
+            {"c", 2},
+            {"d", 3},
+            {"e", 4}
+    };
+    test_with_regs(code, 40, valMap);
 }

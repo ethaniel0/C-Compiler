@@ -62,6 +62,7 @@ public:
     virtual bool replace_target(std::string old_target, std::string new_target){return false;}
     virtual void execute(int32_t *dmem, RegisterFile* regfile, uint32_t* pc) = 0;
     virtual std::string export_str() = 0;
+    virtual uint32_t export_mem() = 0;
 };
 
 

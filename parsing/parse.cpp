@@ -69,12 +69,18 @@ TokenIterator getCondition(TokenIterator& iter){
     while (iter.hasNext()){
         Token* t = iter.next();
         if (t->val_type == TokenValue::LEFT_PAREN) {
+            if (parenCount > 0) conditionTokens.push_back(t);
             parenCount++;
             continue;
         }
-        if (t->val_type == TokenValue::RIGHT_PAREN && --parenCount == 0){
-            return TokenIterator(conditionTokens);
+        if (t->val_type == TokenValue::RIGHT_PAREN){
+            parenCount--;
+            if (parenCount == 0)
+                return TokenIterator(conditionTokens);
+            else conditionTokens.push_back(t);
+            continue;
         }
+
         conditionTokens.push_back(t);
     }
     throw std::runtime_error("Mismatched parentheses");
@@ -106,6 +112,24 @@ std::vector<Token*> parseFunctionArgs (TokenIterator& iter, Scope* scope){
     return tokens;
 }
 
+Token* getInsideBrackets(TokenIterator& iter,Scope* scope){
+    std::vector<Token*> bracketTokens;
+    int bracketCount = 1;
+    while (iter.hasNext()){
+        Token* t = iter.next();
+        if (t->val_type == TokenValue::LEFT_BRACKET) bracketCount++;
+        else if (t->val_type == TokenValue::RIGHT_BRACKET){
+            bracketCount--;
+            if (bracketCount == 0){
+                TokenIterator bracketIter = TokenIterator(bracketTokens);
+                return parseExpression(bracketIter, scope);
+            }
+            else if (bracketCount < 0) throw std::runtime_error("Unexpected right bracket " + t->toString());
+        }
+        bracketTokens.push_back(t);
+    }
+}
+
 Token* parseExpression(TokenIterator& iter, Scope* scope){
     BinaryOpToken topNode(TokenValue::NONE, "", 0);
     topNode.useRight = true;
@@ -115,6 +139,8 @@ Token* parseExpression(TokenIterator& iter, Scope* scope){
     Token* working = head;
 
     int parenCount = 0;
+
+    std::map<std::string, Token*> vars;
 
     while (iter.hasNext()){
         Token* tok = iter.next();
@@ -179,9 +205,7 @@ Token* parseExpression(TokenIterator& iter, Scope* scope){
         }
         else {
             Token* next = iter.peek();
-
             if (tok->val_type == TokenValue::IDENTIFIER && scope->find(tok->lexeme) == nullptr) throw std::runtime_error(tok->lexeme + " not defined");
-
             if (tok->val_type == TokenValue::IDENTIFIER && next != nullptr && next->val_type == TokenValue::LEFT_PAREN){
                 Token* f = scope->find(tok->lexeme);
                 if (f->type != TokenType::TYPE_KEYWORD || f->val_type != FUNCTION) throw std::runtime_error(tok->lexeme + " is not a function");
@@ -191,7 +215,16 @@ Token* parseExpression(TokenIterator& iter, Scope* scope){
                 func->returnType = returnType;
                 tok = func;
             }
-
+            else if (tok->val_type == TokenValue::IDENTIFIER && next != nullptr && next->val_type == TokenValue::LEFT_BRACKET){
+                // find right bracket
+                std::vector<Token*> bracketTokens;
+                iter.next();
+                Token* inside = getInsideBrackets(iter, scope);
+                BinaryOpToken* arr = new BinaryOpToken(TokenValue::ARRAY, "[]", tok->line);
+                arr->right = inside;
+                arr->left = tok;
+                tok = arr;
+            }
             if (working->type != TokenType::TYPE_OPERATOR) throw std::runtime_error("Expected operator before " + tok->toString());
             auto* op = (BinaryOpToken*) working;
             if (!op->useRight) throw std::runtime_error("Invalid Operator Combination at " + tok->toString());
@@ -343,6 +376,33 @@ std::vector<DefinitionToken*> parseFunctionParams(TokenIterator& iter){
     return tokens;
 }
 
+ArrayInitializationToken* parseArrayInit(TokenIterator& iter, Scope* scope){
+    std::vector<Token*> tokens;
+    std::vector<Token*> expr;
+    while (iter.hasNext()){
+        Token* t = iter.next();
+
+        if (t->val_type == TokenValue::LEFT_BRACE){
+            expr.push_back(parseArrayInit(iter, scope));
+        }
+        else if (t->val_type == TokenValue::RIGHT_BRACE){
+            if (!expr.empty()){
+                TokenIterator exprIter = TokenIterator(expr);
+                tokens.push_back(parseExpression(exprIter, scope));
+                expr.clear();
+            }
+            return new ArrayInitializationToken(tokens, TokenValue::ARRAY, t->line);
+        }
+        else if (t->val_type == COMMA){
+            TokenIterator exprIter = TokenIterator(expr);
+            tokens.push_back(parseExpression(exprIter, scope));
+            expr.clear();
+        }
+        else expr.push_back(t);
+    }
+    throw std::runtime_error("Expected right bracket");
+}
+
 Token* parseDefine(TokenIterator& iter, Scope* scope){
     Token* type = iter.next();
     if (type->type != TokenType::TYPE_TYPE) throw std::runtime_error("Expected type when defining value");
@@ -357,8 +417,9 @@ Token* parseDefine(TokenIterator& iter, Scope* scope){
     if (name->type != TokenType::TYPE_IDENTIFIER) throw std::runtime_error("Expected identifier when defining value");
 
     Token* existing = scope->find(name->lexeme);
+
     bool is_function = false;
-    if (existing != nullptr){
+    if (existing != nullptr && existing->depth == scope->getDepth()){
         if (existing->val_type == TokenValue::FUNCTION){
             FunctionToken* func = (FunctionToken*) existing;
             if (func->body != nullptr) throw std::runtime_error("\'" + name->lexeme + "\" already defined on line " + std::to_string(name->line));
@@ -379,6 +440,33 @@ Token* parseDefine(TokenIterator& iter, Scope* scope){
         scope->add(name->lexeme, t);
         t->value = expr;
 
+        return t;
+    }
+    // define an array
+    else if (next->val_type == TokenValue::LEFT_BRACKET){
+        std::vector<Token*> bracketTokens;
+        // defining an array
+        while (next->val_type == TokenValue::LEFT_BRACKET) {
+            iter.next();
+            Token* inside = getInsideBrackets(iter, scope);
+            bracketTokens.push_back(inside);
+            next = iter.peek();
+        }
+
+        ArrayInitializationToken* value = nullptr;
+        if (next->val_type == TokenValue::EQ){
+            // parse array initialization
+            iter.next();
+            iter.next();
+            value = parseArrayInit(iter, scope);
+            value->valueType = type->val_type;
+        }
+
+        auto* t = new DefinitionToken(type->val_type, name->lexeme, name->line);
+        t->value = value;
+        t->refCount = refCount;
+        t->dimensions = bracketTokens;
+        scope->add(name->lexeme, t);
         return t;
     }
 
@@ -478,11 +566,43 @@ Token* parseWhile(TokenIterator& iter, Scope* scope){
     return new WhileToken(condition, body, 0);
 }
 
+AsmToken* parseAsm(TokenIterator& iter){
+    if (iter.peek()->val_type != TokenValue::ASM) throw std::runtime_error("Expected asm statement");
+    int line = iter.peek()->line;
+    iter.next();
+    if (iter.peek()->val_type != TokenValue::LEFT_PAREN) throw std::runtime_error("Expected left parenthesis after asm statement");
+    TokenIterator asmIter = getCondition(iter);
+    std::string asmStr;
+    while (asmIter.hasNext()){
+        Token* t = asmIter.next();
+        if (t->val_type == TokenValue::RIGHT_PAREN) break;
+        else if (t->val_type == TokenValue::STRING) asmStr += t->lexeme + "\n";
+        else throw std::runtime_error("Unexpected token " + t->toString());
+    }
+    return new AsmToken(asmStr, line);
+}
+
+Token* parseInlineFunction(TokenIterator& iter, Scope* scope){
+    Token* inline_keyword = iter.next();
+    if (inline_keyword->val_type != TokenValue::INLINE) throw std::runtime_error("Expected inline keyword");
+    Token* type = iter.peek();
+    if (type->type != TokenType::TYPE_TYPE) throw std::runtime_error("Expected type when defining value");
+
+    Token* t = parseDefine(iter, scope);
+
+    if (t->val_type != TokenValue::FUNCTION) throw std::runtime_error("inline expects a function");
+    FunctionToken* func = (FunctionToken*) t;
+    func->is_inline = true;
+    return func;
+}
+
 std::vector<Token*> parse(TokenIterator& tokens, Scope* scope){
     std::vector<Token*> output;
+    std::map<std::string, Token*> identifiers;
 
     while (tokens.hasNext()){
         Token* t = tokens.peek();
+        t->track = 2;
         // if, else, for, while -> parse special
         // identifier, data type, literal -> parse expression
         // left brace -> parse group
@@ -514,6 +634,13 @@ std::vector<Token*> parse(TokenIterator& tokens, Scope* scope){
                 if (tokens.peek()->val_type != TokenValue::SEMICOLON) throw std::runtime_error("Expected semicolon after continue statement");
                 tokens.next();
             }
+            else if (t->val_type == TokenValue::ASM){
+                output.push_back(parseAsm(tokens));
+                tokens.next();
+            }
+            else if (t->val_type == TokenValue::INLINE){
+                output.push_back(parseInlineFunction(tokens, scope));
+            }
             else {
                 // continue or return -> error
                 throw std::runtime_error("(parse keyword) Unexpected token " + t->toString());
@@ -523,6 +650,17 @@ std::vector<Token*> parse(TokenIterator& tokens, Scope* scope){
                 (t->type == TokenType::TYPE_OPERATOR &&
                     (t->val_type == TokenValue::NEG || t->val_type == TokenValue::DEREF || t->val_type == TokenValue::REF || t->val_type == TokenValue::NOT)
                 )){
+            if (t->type == TYPE_IDENTIFIER){
+                // store in identifiers
+
+                if (identifiers.find(t->lexeme) != identifiers.end()){
+                    identifiers[t->lexeme]->track = 1;
+                    identifiers[t->lexeme] = t;
+                }
+                else {
+                    identifiers[t->lexeme] = t;
+                }
+            }
             // parse expression
             output.push_back(parseExpression(tokens, scope));
         }
@@ -533,6 +671,10 @@ std::vector<Token*> parse(TokenIterator& tokens, Scope* scope){
         else if (t->val_type == TokenValue::LEFT_BRACE){
             // parse group
             output.push_back(parseGroup(tokens, scope));
+        }
+        else if (t->val_type == TokenValue::SEMICOLON){
+            tokens.next();
+            continue;
         }
         else {
             throw std::runtime_error("Unexpected token " + t->toString());

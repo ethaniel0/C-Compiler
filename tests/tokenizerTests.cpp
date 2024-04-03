@@ -159,3 +159,13 @@ TEST(tokenizerTests, orVariations){
     EXPECT_EQ(tokens[5].val_type, BIN_OR, %d)
     EXPECT_EQ(tokens[6].val_type, NUMBER, %d)
 }
+
+TEST(tokenizerTests, assembly){
+    std::string source = "__asm__(\"li $v0, 4\")";
+    std::vector<Token> tokens = tokenize(source);
+    EXPECT_EQ(tokens.size(), 4, %d)
+    EXPECT_EQ(tokens[0].val_type, ASM, %d)
+    EXPECT_EQ(tokens[1].val_type, LEFT_PAREN, %d)
+    EXPECT_EQ(tokens[2].val_type, STRING, %d)
+    EXPECT_EQ(tokens[3].val_type, RIGHT_PAREN, %d)
+}

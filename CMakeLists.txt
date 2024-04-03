@@ -9,7 +9,11 @@ add_executable(i2c2 main.cpp
         mips/MipsRunner.cpp
         mipsCompiler/MipsCompiler.cpp
         mipsCompiler/VariableTracker.cpp
-        mipsCompiler/MipsBuilder.cpp)
+        mipsCompiler/MipsBuilder.cpp
+        mipsCompiler/MipsAssembler.cpp
+        mipsCompiler/MipsAssembler.h
+        mipsCompiler/operationsCompiler.cpp
+        mipsCompiler/operationsCompiler.h)
 add_executable(parser_tests tests/tests.cpp
         tests/testFramework/TestFramework.cpp
         tests/tokenizerTests.cpp
@@ -23,4 +27,6 @@ add_executable(parser_tests tests/tests.cpp
         mipsCompiler/VariableTracker.cpp
         mipsCompiler/MipsBuilder.cpp
         tests/compilationTests.cpp
-        tests/compilationTests.h)
+        tests/compilationTests.h
+        mipsCompiler/MipsAssembler.cpp
+        mipsCompiler/operationsCompiler.cpp)
