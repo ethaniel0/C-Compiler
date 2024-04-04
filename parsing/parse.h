@@ -45,6 +45,7 @@ public:
 class Scope {
 private:
     std::map<std::string, Token*> context;
+    std::map<std::string, Token*> identifiers;
     Scope* parentContext;
     int depth = 0;
 
@@ -58,15 +59,33 @@ public:
             depth = 0;
         }
     }
-    Token* find(const std::string& name){
+    Token* find(const std::string& name, Token* token){
         if (context.find(name) != context.end()){
+            if (identifiers.find(name) == identifiers.end()){
+                identifiers[name] = token;
+            }
+            else {
+                identifiers[name]->track = 1;
+                token->track = 2;
+                identifiers[name] = token;
+            }
+
             return context[name];
         }
         if (parentContext == nullptr) return nullptr;
-        return parentContext->find(name);
+        return parentContext->find(name, token);
     }
     void add(const std::string& name, Token* value){
         context[name] = value;
+
+        if (identifiers.find(name) == identifiers.end()){
+            identifiers[name] = value;
+        }
+        else {
+            identifiers[name]->track = 1;
+            value->track = 2;
+            identifiers[name] = value;
+        }
     }
     bool isBaseScope(){
         return parentContext == nullptr;

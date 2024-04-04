@@ -160,7 +160,9 @@ std::vector<Token> tokenize(std::string source) {
                 break;
             case '-':
                 // if negative number skip to negative
-                if (current < source.size() - 1 && isdigit(source.at(current+1))) {
+                if (current < source.size() - 1 && isdigit(source.at(current+1)) && !(
+                        prev_token->val_type == IDENTIFIER || prev_token->val_type == NUMBER || prev_token->val_type == RIGHT_PAREN
+                        )) {
                     is_neg = true;
                     break;
                 }
@@ -259,7 +261,17 @@ std::vector<Token> tokenize(std::string source) {
                 if (current < source.size() - 1 && source.at(current + 1) == '=') {
                     tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::GTE, ">=", line);
                     current++;
-                } else {
+                }
+                else if (current < source.size() - 1 && source.at(current + 1) == '>') {
+                    if (current < source.size() - 2 && source.at(current + 2) == '=') {
+                        tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::RSHIFT_EQ, ">>=", line);
+                        current++;
+                    } else {
+                        tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::RSHIFT, ">>", line);
+                    }
+                    current++;
+                }
+                else {
                     tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::GT, ">", line);
                 }
                 break;
@@ -267,7 +279,17 @@ std::vector<Token> tokenize(std::string source) {
                 if (current < source.size() - 1 && source.at(current + 1) == '=') {
                     tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::LTE, "<=", line);
                     current++;
-                } else {
+                }
+                else if (current < source.size() - 1 && source.at(current + 1) == '<') {
+                    if (current < source.size() - 2 && source.at(current + 2) == '=') {
+                        tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::LSHIFT_EQ, "<<=", line);
+                        current++;
+                    } else {
+                        tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::LSHIFT, "<<", line);
+                    }
+                    current++;
+                }
+                else {
                     tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::LT, "<", line);
                 }
                 break;
@@ -301,7 +323,7 @@ std::vector<Token> tokenize(std::string source) {
                     }
                     if (current < source.size() && source.at(current) == '.' && isdigit(source.at(current + 1))) {
                         current++;
-                        while (isdigit(source.at(current))) {
+                        while (current < source.size() && isdigit(source.at(current))) {
                             current++;
                         }
                     }
@@ -345,8 +367,8 @@ std::vector<Token> tokenize(std::string source) {
                     else if (word == "__asm__") tokens.emplace_back(TokenType::TYPE_KEYWORD, TokenValue::ASM, word, line);
 
                     else if (word == "#define"){
-                        std::string define_key = "";
-                        std::string define = "";
+                        std::string define_key;
+                        std::string define;
                         current++;
                         while (current < source.size() && source.at(current) == ' '){
                             current++;
@@ -373,7 +395,7 @@ std::vector<Token> tokenize(std::string source) {
                     }
                 }
                 else {
-                    throw std::runtime_error("Unexpected character: " + std::to_string(c));
+                    throw std::runtime_error("Unexpected character: " + std::string(1, c) + " at line " + std::to_string(line));
                 }
                 break;
         }

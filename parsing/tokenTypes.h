@@ -46,6 +46,8 @@ enum TokenValue {
     GT, GTE,
     LT, LTE,
     EQ, EQ_EQ,
+    LSHIFT, LSHIFT_EQ,
+    RSHIFT, RSHIFT_EQ,
 
     // literals and values
     IDENTIFIER, STRING, NUMBER, CHARACTER, NIL, FUNCTION, ARRAY,

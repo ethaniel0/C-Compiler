@@ -14,13 +14,14 @@ std::vector<Token*> toTokenRefs(std::vector<Token>& tokens){
     return tokenPtrs;
 }
 
-TokenValue precedenceArr[9][10] = {
+TokenValue precedenceArr[10][12] = {
     {EQ, ADD_EQ, MINUS_EQ, MULT_EQ, DIV_EQ,
-     MOD_EQ, BIN_AND_EQ, BIN_OR_EQ, XOR_EQ, NONE},
+     MOD_EQ, BIN_AND_EQ, BIN_OR_EQ, XOR_EQ, LSHIFT_EQ, RSHIFT_EQ, NONE},
     {OR, NONE},
     {AND, NONE},
     {EQ_EQ, NOT_EQ, NONE},
     {LT, LTE, GT, GTE, NONE},
+    {LSHIFT, RSHIFT, NONE},
     {BIN_AND, BIN_OR, XOR, NONE},
     {ADD, MINUS, NONE},
     {MULT, DIV, MOD, NONE},
@@ -96,7 +97,15 @@ std::vector<Token*> parseFunctionArgs (TokenIterator& iter, Scope* scope){
     }
     std::vector<Token*> expr;
     while (iter.hasNext()){
-        Token* t = iter.next();
+        Token* t = iter.peek();
+        if (t->val_type == LEFT_PAREN){
+            TokenIterator cond = getCondition(iter);
+            while(cond.hasNext()){
+                expr.push_back(cond.next());
+            }
+            continue;
+        }
+        t = iter.next();
         if (t->val_type == RIGHT_PAREN){
             TokenIterator exprIter = TokenIterator(expr);
             tokens.push_back(parseExpression(exprIter, scope));
@@ -132,6 +141,9 @@ Token* getInsideBrackets(TokenIterator& iter,Scope* scope){
 
 Token* parseExpression(TokenIterator& iter, Scope* scope){
     BinaryOpToken topNode(TokenValue::NONE, "", 0);
+    if (iter.hasNext()){
+        topNode.line = iter.peek()->line;
+    }
     topNode.useRight = true;
     topNode.depth = -1;
 
@@ -149,18 +161,9 @@ Token* parseExpression(TokenIterator& iter, Scope* scope){
             BinaryOpToken* op;
             op = makeOperator(tok);
 
-            if (op->useLeft && working == nullptr){
-                if (op->left == nullptr)
-                    throw std::runtime_error("Operator " + tok->toString() + " expected value on left");
-                // if expression starts with parentheses, working will be null when operator is full
-                working = op;
-                continue;
-            }
-
             if (op->useLeft){
                 // go left of any non-operators -> can assume working is of type operator
-                while (working != nullptr &&
-                       precedence(op->val_type) <= precedence(working->val_type) &&
+                while (precedence(op->val_type) <= precedence(working->val_type) &&
                        op->depth <= working->depth
                        ){
                     if (working->type == TYPE_OPERATOR){
@@ -181,7 +184,6 @@ Token* parseExpression(TokenIterator& iter, Scope* scope){
                 working = op;
             }
             else if (op->useRight){
-                if (working == nullptr) throw std::runtime_error("Operator " + op->toString() + " expected value on left");
                 auto* working_op = (BinaryOpToken*) working;
                 if (!working_op->useRight) throw std::runtime_error("Invalid Operator Combination at " + op->toString());
                 if (working_op->right != nullptr) throw std::runtime_error("Operator " + working_op->toString() + " already has right value");
@@ -205,9 +207,9 @@ Token* parseExpression(TokenIterator& iter, Scope* scope){
         }
         else {
             Token* next = iter.peek();
-            if (tok->val_type == TokenValue::IDENTIFIER && scope->find(tok->lexeme) == nullptr) throw std::runtime_error(tok->lexeme + " not defined");
+            if (tok->val_type == TokenValue::IDENTIFIER && scope->find(tok->lexeme, tok) == nullptr) throw std::runtime_error(tok->lexeme + " not defined");
             if (tok->val_type == TokenValue::IDENTIFIER && next != nullptr && next->val_type == TokenValue::LEFT_PAREN){
-                Token* f = scope->find(tok->lexeme);
+                Token* f = scope->find(tok->lexeme, tok);
                 if (f->type != TokenType::TYPE_KEYWORD || f->val_type != FUNCTION) throw std::runtime_error(tok->lexeme + " is not a function");
                 TokenValue returnType = ((FunctionToken*) f)->returnType;
                 std::vector<Token*> args = parseFunctionArgs(iter, scope);
@@ -268,14 +270,6 @@ GroupToken* parseGroup(TokenIterator& iter, Scope* scope){
         }
         tokens.push_back(t);
     }
-    Token* last = iter.next();
-    if (last->val_type == TokenValue::RIGHT_BRACE && bracketCount == 0){
-        auto* group = new GroupToken(TokenType::TYPE_GROUP, "{}", last->line);
-        TokenIterator innerIter = TokenIterator(tokens);
-        group->expressions = parse(innerIter, innerScope);
-        return group;
-    }
-
     throw std::runtime_error("Left bracket " + start->toString() + " has no matching right bracket");
 }
 
@@ -416,7 +410,7 @@ Token* parseDefine(TokenIterator& iter, Scope* scope){
     Token* name = iter.next();
     if (name->type != TokenType::TYPE_IDENTIFIER) throw std::runtime_error("Expected identifier when defining value");
 
-    Token* existing = scope->find(name->lexeme);
+    Token* existing = scope->find(name->lexeme, name);
 
     bool is_function = false;
     if (existing != nullptr && existing->depth == scope->getDepth()){
@@ -598,7 +592,6 @@ Token* parseInlineFunction(TokenIterator& iter, Scope* scope){
 
 std::vector<Token*> parse(TokenIterator& tokens, Scope* scope){
     std::vector<Token*> output;
-    std::map<std::string, Token*> identifiers;
 
     while (tokens.hasNext()){
         Token* t = tokens.peek();
@@ -650,17 +643,6 @@ std::vector<Token*> parse(TokenIterator& tokens, Scope* scope){
                 (t->type == TokenType::TYPE_OPERATOR &&
                     (t->val_type == TokenValue::NEG || t->val_type == TokenValue::DEREF || t->val_type == TokenValue::REF || t->val_type == TokenValue::NOT)
                 )){
-            if (t->type == TYPE_IDENTIFIER){
-                // store in identifiers
-
-                if (identifiers.find(t->lexeme) != identifiers.end()){
-                    identifiers[t->lexeme]->track = 1;
-                    identifiers[t->lexeme] = t;
-                }
-                else {
-                    identifiers[t->lexeme] = t;
-                }
-            }
             // parse expression
             output.push_back(parseExpression(tokens, scope));
         }

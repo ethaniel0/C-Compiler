@@ -11,9 +11,9 @@
 
 int main(){
 //    RUN_TESTS();
-//    run_tokenizer_tests();
-//    run_parser_tests();
-//    run_mips_tests();
+    run_tokenizer_tests();
+    run_parser_tests();
+    run_mips_tests();
     run_compilation_tests();
     printf("finished\n");
     return 0;

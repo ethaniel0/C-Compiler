@@ -177,27 +177,31 @@ uint8_t VariableTracker::getReg(const std::string &var, int track_number, bool m
 int VariableTracker::set_array(const std::string &var, int size) {
     std::string name = std::to_string(scope_level) + "-" + var;
     if (var_to_reg.find(name) != var_to_reg.end()) {
-        throw std::runtime_error("Variable already in use");
+        throw std::runtime_error("Variable " + var + " already in use");
+    }
+    if (var_to_stack.find(name) != var_to_stack.end()) {
+        throw std::runtime_error("Variable " + var + " already in stack");
     }
     if (var_to_global_mem.find(name) != var_to_global_mem.end()) {
-        throw std::runtime_error("Variable already in memory");
+        throw std::runtime_error("Variable " + var + " already in memory");
     }
+
     if (scope_level == 0){
         // store in global memory
         uint32_t mem = mem_offset;
         mem_offset += size;
-        var_to_global_mem[name] = mem;
-        global_mem_to_var[mem] = name;
-        return mem;
+//        var_to_global_mem[name] = mem;
+//        global_mem_to_var[mem] = name;
+        return -mem;
     }
     else {
         // store in stack
         uint32_t mem = stack_offset;
         stack_offset += size;
-        var_to_stack[name] = mem;
-        stack_to_var[mem] = name;
+//        var_to_stack[name] = mem;
+//        stack_to_var[mem] = name;
         mipsBuilder->addInstruction(new InstrAddi(29, 29, (int16_t) -size), "");
-        return mem;
+        return mem + 1;
     }
 }
 
@@ -434,10 +438,6 @@ void VariableTracker::decScope() {
         reg_to_var[reg] = name;
         regFreq.use(name);
     }
-}
-
-int VariableTracker::get_stack_offset() {
-    return stack_offset;
 }
 
 void VariableTracker::add_var_that_must_load(const std::string &var) {

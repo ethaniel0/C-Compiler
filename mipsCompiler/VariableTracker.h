@@ -97,7 +97,6 @@ public:
     }
     
     std::string add_temp_variable();
-    int get_stack_offset();
     int get_mem_offset();
 
     // get the register of a variable, load it from memory into a register, or add if it doesn't exist

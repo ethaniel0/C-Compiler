@@ -95,7 +95,8 @@ std::string compile_value_def(Token* token, MipsBuilder* mipsBuilder, VariableTr
 void compile_jump_condition(const std::string& break_to, Token* condition, MipsBuilder* mipsBuilder, VariableTracker* varTracker){
     if (condition->val_type == LT || condition->val_type == LTE ||
         condition->val_type == GT || condition->val_type == GTE ||
-        condition->val_type == EQ_EQ || condition->val_type == NOT_EQ){
+        condition->val_type == EQ_EQ || condition->val_type == NOT_EQ ||
+        condition->val_type == NOT){
         compile_op(break_to, condition, mipsBuilder, varTracker);
     }
     else {

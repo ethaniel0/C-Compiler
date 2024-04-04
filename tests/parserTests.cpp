@@ -282,6 +282,23 @@ TEST(parser, assignment_with_ref){
     EXPECT_TRUE(ref->right->lexeme == "a")
 }
 
+TEST(parser, int_with_two_refs){
+    std::vector<Token> token_list = tokenize("int** a = 0;");
+    std::vector<Token*> tokens = toTokenRefs(token_list);
+    TokenIterator iterator(tokens);
+    Scope scope = Scope(nullptr);
+    std::vector<Token*> parsed = parse(iterator, &scope);
+    ASSERT_EQ((int)parsed.size(), 1, %d)
+    Token* start = parsed[0];
+
+    ASSERT_EQ(start->type, TYPE_OPERATOR, %d)
+    auto* assign = (DefinitionToken*)start;
+    ASSERT_EQ(assign->val_type, IDENTIFIER, %d)
+    ASSERT_EQ(assign->valueType, INT, %d)
+    ASSERT_EQ(assign->refCount, 2, %d)
+
+}
+
 TEST(parser, invalid_assignment_no_expr){
     std::vector<Token> token_list = tokenize("int a =");
     std::vector<Token*> tokens = toTokenRefs(token_list);
@@ -304,8 +321,50 @@ TEST(parser, invalid_assignment_bad_ops){
         std::vector<Token*> parsed = parse(iterator, &scope);
     } catch (std::runtime_error& e) {
         std::string result = e.what();
-        EXPECT_EQ_SPECIAL(result, "Operator <OPERATOR NONE  line 0> expected value on right", %s, .c_str(),)
+        EXPECT_EQ_SPECIAL(result, "Operator <OPERATOR NONE  line 1> expected value on right", %s, .c_str(),)
     }
+}
+
+TEST(parser, nested_parentheces){
+    std::vector<Token> token_list = tokenize("int a = ((4 + 2) * 3) / 2;");
+    std::vector<Token*> tokens = toTokenRefs(token_list);
+    TokenIterator iterator(tokens);
+    Scope scope = Scope(nullptr);
+    std::vector<Token*> parsed = parse(iterator, &scope);
+    ASSERT_EQ((int)parsed.size(), 1, %d)
+    Token* start = parsed[0];
+
+    ASSERT_EQ(start->type, TYPE_OPERATOR, %d)
+    auto* assign = (DefinitionToken*)start;
+    ASSERT_EQ(assign->val_type, IDENTIFIER, %d)
+
+    EXPECT_EQ(assign->valueType, INT, %d)
+    EXPECT_EQ(assign->refCount, 0, %d)
+
+    auto* div = (BinaryOpToken*)assign->value;
+    ASSERT_EQ(div->val_type, DIV, %d)
+
+    auto* two = div->right;
+    ASSERT_EQ(two->val_type, NUMBER, %d)
+    EXPECT_TRUE(two->lexeme == "2")
+
+    auto* mult = (BinaryOpToken*)div->left;
+    ASSERT_EQ(mult->val_type, MULT, %d)
+
+    auto* three = mult->right;
+    ASSERT_EQ(three->val_type, NUMBER, %d)
+    EXPECT_TRUE(three->lexeme == "3")
+
+    auto* add = (BinaryOpToken*)mult->left;
+    ASSERT_EQ(add->val_type, ADD, %d)
+
+    auto* twoInner = add->right;
+    ASSERT_EQ(twoInner->val_type, NUMBER, %d)
+    EXPECT_TRUE(twoInner->lexeme == "2")
+
+    auto* four = add->left;
+    ASSERT_EQ(four->val_type, NUMBER, %d)
+    EXPECT_TRUE(four->lexeme == "4")
 }
 
 TEST(parser, if_statement){
@@ -480,6 +539,49 @@ TEST(parser, if_else_if_else_statement){
     EXPECT_TRUE(eq3->right->lexeme == "7")
 }
 
+TEST(parser, if_with_nested_parentheces){
+    std::vector<Token> token_list = tokenize("int x = 1; if((x < 5) && (x > 0)){\n"
+                                             "    x = 5;\n"
+                                             "}\n");
+    std::vector<Token *> tokens = toTokenRefs(token_list);
+    TokenIterator iterator(tokens);
+    Scope scope = Scope(nullptr);
+    std::vector<Token *> parsed = parse(iterator, &scope);
+    ASSERT_EQ((int) parsed.size(), 2, %d)
+
+    auto* if_statement = (IfElseToken*) parsed[1];
+
+    Token* condition = if_statement->condition;
+    ASSERT_EQ(condition->type, TYPE_OPERATOR, %d)
+    auto* andOp = (BinaryOpToken*)condition;
+    ASSERT_EQ(andOp->val_type, AND, %d)
+    ASSERT_EQ(andOp->left->type, TYPE_OPERATOR, %d)
+    ASSERT_EQ(andOp->right->type, TYPE_OPERATOR, %d)
+
+    auto* lessThan = (BinaryOpToken*)andOp->left;
+    ASSERT_EQ(lessThan->val_type, LT, %d)
+    ASSERT_EQ(lessThan->left->val_type, IDENTIFIER, %d)
+    ASSERT_EQ(lessThan->right->val_type, NUMBER, %d)
+
+    auto* greaterThan = (BinaryOpToken*)andOp->right;
+    ASSERT_EQ(greaterThan->val_type, GT, %d)
+    ASSERT_EQ(greaterThan->left->val_type, IDENTIFIER, %d)
+    ASSERT_EQ(greaterThan->right->val_type, NUMBER, %d)
+
+    GroupToken* ifBody = if_statement->ifBody;
+    ASSERT_EQ(ifBody->expressions.size(), 1, %d)
+    ASSERT_EQ(ifBody->expressions[0]->type, TYPE_OPERATOR, %d)
+    auto* eq = (BinaryOpToken*)ifBody->expressions[0];
+    ASSERT_EQ(eq->val_type, EQ, %d)
+    EXPECT_EQ(eq->left->val_type, IDENTIFIER, %d)
+    EXPECT_TRUE(eq->left->lexeme == "x")
+    EXPECT_EQ(eq->right->val_type, NUMBER, %d)
+    EXPECT_TRUE(eq->right->lexeme == "5")
+
+    EXPECT_TRUE(if_statement->elseIfBodies.empty())
+    EXPECT_EQ(if_statement->elseBody, nullptr, %p)
+}
+
 TEST(parser, function_definition_with_empty_function){
     std::vector<Token> token_list = tokenize("int main(){\n"
                                              "}\n");
@@ -514,6 +616,26 @@ TEST(parser, function_definition_with_pointer_empty){
     EXPECT_TRUE(function->body->expressions.empty())
 }
 
+TEST(parser, function_with_argument_that_has_two_refs){
+    std::vector<Token> token_list = tokenize("int* main(int** x){\n"
+                                             "}\n");
+    std::vector<Token *> tokens = toTokenRefs(token_list);
+    TokenIterator iterator(tokens);
+    Scope scope = Scope(nullptr);
+    std::vector<Token *> parsed = parse(iterator, &scope);
+    ASSERT_EQ((int) parsed.size(), 1, %d)
+
+    auto* function = (FunctionToken*) parsed[0];
+    EXPECT_EQ(function->returnType, INT, %d)
+    EXPECT_EQ(function->refCount, 1, %d)
+    EXPECT_EQ_SPECIAL(function->name, "main", %s, .c_str(),)
+    ASSERT_EQ(function->parameters.size(), 1, %d)
+    auto* param = function->parameters[0];
+    EXPECT_EQ(param->valueType, INT, %d)
+    EXPECT_EQ(param->refCount, 2, %d)
+    EXPECT_EQ_SPECIAL(param->name, "x", %s, .c_str(),)
+}
+
 TEST(parser, function_definition_with_body){
     std::vector<Token> token_list = tokenize("int main(){\n"
                                              "    int x = 5;\n"
@@ -539,6 +661,28 @@ TEST(parser, function_definition_with_body){
     EXPECT_EQ_SPECIAL(def->value->lexeme, "5", %s, .c_str(),)
 }
 
+TEST(parser, function_call_with_no_params){
+    std::vector<Token> token_list = tokenize("int main(){\n"
+                                             "    return 0;\n"
+                                             "}\n"
+                                             "int z = main();\n");
+    std::vector<Token *> tokens = toTokenRefs(token_list);
+    TokenIterator iterator(tokens);
+    Scope scope = Scope(nullptr);
+    std::vector<Token *> parsed = parse(iterator, &scope);
+    ASSERT_EQ((int) parsed.size(), 2, %d)
+    auto* expr = (DefinitionToken*)parsed[1];
+    EXPECT_EQ(expr->valueType, INT, %d)
+    EXPECT_EQ(expr->refCount, 0, %d)
+    EXPECT_EQ_SPECIAL(expr->name, "z", %s, .c_str(),)
+    auto* call = (FunctionCallToken*)expr->value;
+    ASSERT_EQ(call->type, TokenType::TYPE_OPERATOR, %d)
+    ASSERT_EQ(call->val_type, TokenValue::FUNCTION, %d)
+    EXPECT_EQ(call->function->val_type, TokenValue::IDENTIFIER, %d)
+    EXPECT_EQ_SPECIAL(call->function->lexeme, "main", %s, .c_str(),)
+    EXPECT_TRUE(call->arguments.empty())
+}
+
 TEST(parser, function_call){
     std::vector<Token> token_list = tokenize("int add(int x, int y){\n"
                                              "    return x + y;\n"
@@ -561,6 +705,68 @@ TEST(parser, function_call){
     ASSERT_EQ(call->arguments.size(), 2, %d)
     EXPECT_EQ(call->arguments[0]->val_type, NUMBER, %d)
     EXPECT_EQ_SPECIAL(call->arguments[0]->lexeme, "2", %s, .c_str(),)
+    EXPECT_EQ(call->arguments[1]->val_type, NUMBER, %d)
+    EXPECT_EQ_SPECIAL(call->arguments[1]->lexeme, "3", %s, .c_str(),)
+}
+
+TEST(parser, exprs_in_braces){
+    std::vector<Token> token_list = tokenize("{"
+                                             "int x = 0;"
+                                             "int y = 4;"
+                                             "{"
+                                             "    int z = 5;"
+                                             "}"
+                                             "}");
+    std::vector<Token *> tokens = toTokenRefs(token_list);
+    TokenIterator iterator(tokens);
+    Scope scope = Scope(nullptr);
+    std::vector<Token *> parsed = parse(iterator, &scope);
+
+    ASSERT_EQ((int) parsed.size(), 1, %d)
+    auto* group = (GroupToken*)parsed[0];
+    ASSERT_EQ(group->expressions.size(), 3, %d)
+    auto* x = (DefinitionToken*)group->expressions[0];
+    EXPECT_EQ(x->valueType, INT, %d)
+    EXPECT_EQ(x->refCount, 0, %d)
+    EXPECT_EQ_SPECIAL(x->name, "x", %s, .c_str(),)
+    auto* y = (DefinitionToken*)group->expressions[1];
+    EXPECT_EQ(y->valueType, INT, %d)
+    EXPECT_EQ(y->refCount, 0, %d)
+    EXPECT_EQ_SPECIAL(y->name, "y", %s, .c_str(),)
+    auto* group2 = (GroupToken*)group->expressions[2];
+    ASSERT_EQ(group2->expressions.size(), 1, %d)
+    auto* z = (DefinitionToken*)group2->expressions[0];
+    EXPECT_EQ(z->valueType, INT, %d)
+    EXPECT_EQ(z->refCount, 0, %d)
+    EXPECT_EQ_SPECIAL(z->name, "z", %s, .c_str(),)
+}
+
+TEST(parser, function_call_with_nested_parentheces){
+    std::vector<Token> token_list = tokenize("int add(int x, int y){\n"
+                                             "    return x + y;\n"
+                                             "}\n"
+                                             "int z = add((2 + 3), 3);\n");
+    std::vector<Token *> tokens = toTokenRefs(token_list);
+    TokenIterator iterator(tokens);
+    Scope scope = Scope(nullptr);
+    std::vector<Token *> parsed = parse(iterator, &scope);
+    ASSERT_EQ((int) parsed.size(), 2, %d)
+    auto* expr = (DefinitionToken*)parsed[1];
+    EXPECT_EQ(expr->valueType, INT, %d)
+    EXPECT_EQ(expr->refCount, 0, %d)
+    EXPECT_EQ_SPECIAL(expr->name, "z", %s, .c_str(),)
+    auto* call = (FunctionCallToken*)expr->value;
+    ASSERT_EQ(call->type, TokenType::TYPE_OPERATOR, %d)
+    ASSERT_EQ(call->val_type, TokenValue::FUNCTION, %d)
+    EXPECT_EQ(call->function->val_type, TokenValue::IDENTIFIER, %d)
+    EXPECT_EQ_SPECIAL(call->function->lexeme, "add", %s, .c_str(),)
+    ASSERT_EQ(call->arguments.size(), 2, %d)
+    auto* add = (BinaryOpToken*)call->arguments[0];
+    ASSERT_EQ(add->val_type, ADD, %d)
+    EXPECT_EQ(add->left->val_type, NUMBER, %d)
+    EXPECT_EQ_SPECIAL(add->left->lexeme, "2", %s, .c_str(),)
+    EXPECT_EQ(add->right->val_type, NUMBER, %d)
+    EXPECT_EQ_SPECIAL(add->right->lexeme, "3", %s, .c_str(),)
     EXPECT_EQ(call->arguments[1]->val_type, NUMBER, %d)
     EXPECT_EQ_SPECIAL(call->arguments[1]->lexeme, "3", %s, .c_str(),)
 }
@@ -731,6 +937,57 @@ TEST(parser, for_loop_with_simple_body){
     EXPECT_EQ_SPECIAL(def2->value->lexeme, "5", %s, .c_str(),)
 }
 
+TEST(parser, infinite_for_loop){
+    std::vector<Token> token_list = tokenize("for(;;){\n"
+                                             "}\n");
+    std::vector<Token *> tokens = toTokenRefs(token_list);
+    TokenIterator iterator(tokens);
+    Scope scope = Scope(nullptr);
+    std::vector<Token *> parsed = parse(iterator, &scope);
+    ASSERT_EQ((int) parsed.size(), 1, %d)
+
+    auto* forLoop = (ForToken*) parsed[0];
+    EXPECT_EQ(forLoop->init, nullptr, %p)
+    EXPECT_EQ(forLoop->condition, nullptr, %p)
+    EXPECT_EQ(forLoop->increment, nullptr, %p)
+    EXPECT_TRUE(forLoop->body->expressions.empty())
+
+}
+
+TEST(parser, for_loop_with_continue){
+    std::vector<Token> token_list = tokenize("for(int i = 0; i <= 5; i += 1){\n"
+                                             "    continue;\n"
+                                             "}\n");
+    std::vector<Token *> tokens = toTokenRefs(token_list);
+    TokenIterator iterator(tokens);
+    Scope scope = Scope(nullptr);
+    std::vector<Token *> parsed = parse(iterator, &scope);
+
+    ASSERT_EQ((int) parsed.size(), 1, %d)
+    ForToken* forLoop = (ForToken*) parsed[0];
+    ASSERT_EQ(forLoop->body->expressions.size(), 1, %d)
+    ASSERT_EQ(forLoop->body->expressions[0]->type, TYPE_KEYWORD, %d)
+    auto* cont = forLoop->body->expressions[0];
+    EXPECT_EQ(cont->val_type, CONTINUE, %d)
+}
+
+TEST(parser, for_loop_with_break){
+    std::vector<Token> token_list = tokenize("for(int i = 0; i <= 5; i += 1){\n"
+                                             "    break;\n"
+                                             "}\n");
+    std::vector<Token *> tokens = toTokenRefs(token_list);
+    TokenIterator iterator(tokens);
+    Scope scope = Scope(nullptr);
+    std::vector<Token *> parsed = parse(iterator, &scope);
+
+    ASSERT_EQ((int) parsed.size(), 1, %d)
+    ForToken* forLoop = (ForToken*) parsed[0];
+    ASSERT_EQ(forLoop->body->expressions.size(), 1, %d)
+    ASSERT_EQ(forLoop->body->expressions[0]->type, TYPE_KEYWORD, %d)
+    auto* cont = forLoop->body->expressions[0];
+    EXPECT_EQ(cont->val_type, BREAK, %d)
+}
+
 TEST(parser, while_loop_with_empty_body){
     std::vector<Token> token_list = tokenize("while(1){\n"
                                              "}\n");
@@ -744,6 +1001,40 @@ TEST(parser, while_loop_with_empty_body){
     ASSERT_EQ(whileLoop->condition->val_type, NUMBER, %d)
     EXPECT_EQ_SPECIAL(whileLoop->condition->lexeme, "1", %s, .c_str(),)
     EXPECT_TRUE(whileLoop->body->expressions.empty())
+}
+
+TEST(parser, while_loop_with_continue){
+    std::vector<Token> token_list = tokenize("while(1){\n"
+                                             "    continue;\n"
+                                             "}\n");
+    std::vector<Token *> tokens = toTokenRefs(token_list);
+    TokenIterator iterator(tokens);
+    Scope scope = Scope(nullptr);
+    std::vector<Token *> parsed = parse(iterator, &scope);
+
+    ASSERT_EQ((int) parsed.size(), 1, %d)
+    WhileToken* whileLoop = (WhileToken*) parsed[0];
+    ASSERT_EQ(whileLoop->body->expressions.size(), 1, %d)
+    ASSERT_EQ(whileLoop->body->expressions[0]->type, TYPE_KEYWORD, %d)
+    auto* cont = whileLoop->body->expressions[0];
+    EXPECT_EQ(cont->val_type, CONTINUE, %d)
+}
+
+TEST(parser, while_loop_with_break){
+    std::vector<Token> token_list = tokenize("while(1){\n"
+                                             "    break;\n"
+                                             "}\n");
+    std::vector<Token *> tokens = toTokenRefs(token_list);
+    TokenIterator iterator(tokens);
+    Scope scope = Scope(nullptr);
+    std::vector<Token *> parsed = parse(iterator, &scope);
+
+    ASSERT_EQ((int) parsed.size(), 1, %d)
+    WhileToken* whileLoop = (WhileToken*) parsed[0];
+    ASSERT_EQ(whileLoop->body->expressions.size(), 1, %d)
+    ASSERT_EQ(whileLoop->body->expressions[0]->type, TYPE_KEYWORD, %d)
+    auto* cont = whileLoop->body->expressions[0];
+    EXPECT_EQ(cont->val_type, BREAK, %d)
 }
 
 TEST(parser, while_loop_with_expr_in_header_empty_body){
@@ -768,7 +1059,7 @@ TEST(parser, while_loop_with_expr_in_header_empty_body){
 TEST(parser, while_loop_with_body){
     std::vector<Token> token_list = tokenize("while(1){\n"
                                              "    int x = 5;\n"
-                                             "}\n");
+                                             "}");
     std::vector<Token *> tokens = toTokenRefs(token_list);
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
@@ -786,6 +1077,53 @@ TEST(parser, while_loop_with_body){
     EXPECT_EQ_SPECIAL(def->name, "x", %s, .c_str(),)
     EXPECT_EQ(def->value->val_type, NUMBER, %d)
     EXPECT_EQ_SPECIAL(def->value->lexeme, "5", %s, .c_str(),)
+}
+
+TEST(parser, return_outside_of_function){
+    std::vector<Token> token_list = tokenize("return 5;\n");
+    std::vector<Token *> tokens = toTokenRefs(token_list);
+    TokenIterator iterator(tokens);
+    Scope scope = Scope(nullptr);
+    try {
+        std::vector<Token *> parsed = parse(iterator, &scope);
+        FAIL()
+    } catch (std::runtime_error& e){}
+
+}
+
+TEST(parser, use_var_more_than_once){
+    std::vector<Token> token_list = tokenize("int x = 5; int y = x + x; int z = x;\n");
+    std::vector<Token *> tokens = toTokenRefs(token_list);
+    TokenIterator iterator(tokens);
+    Scope scope = Scope(nullptr);
+    std::vector<Token *> parsed = parse(iterator, &scope);
+
+    ASSERT_EQ((int) parsed.size(), 3, %d)
+
+    auto* def = (DefinitionToken*)parsed[0];
+    EXPECT_EQ(def->valueType, INT, %d)
+    EXPECT_EQ(def->refCount, 0, %d)
+    EXPECT_EQ_SPECIAL(def->name, "x", %s, .c_str(),)
+    EXPECT_EQ(def->value->val_type, NUMBER, %d)
+    EXPECT_EQ_SPECIAL(def->value->lexeme, "5", %s, .c_str(),)
+
+    auto* def2 = (DefinitionToken*)parsed[1];
+    EXPECT_EQ(def2->valueType, INT, %d)
+    EXPECT_EQ(def2->refCount, 0, %d)
+    EXPECT_EQ_SPECIAL(def2->name, "y", %s, .c_str(),)
+    auto* add = (BinaryOpToken*)def2->value;
+    ASSERT_EQ(add->val_type, ADD, %d)
+    EXPECT_EQ(add->left->val_type, IDENTIFIER, %d)
+    EXPECT_EQ_SPECIAL(add->left->lexeme, "x", %s, .c_str(),)
+    EXPECT_EQ(add->right->val_type, IDENTIFIER, %d)
+    EXPECT_EQ_SPECIAL(add->right->lexeme, "x", %s, .c_str(),)
+
+    auto* def3 = (DefinitionToken*)parsed[2];
+    EXPECT_EQ(def3->valueType, INT, %d)
+    EXPECT_EQ(def3->refCount, 0, %d)
+    EXPECT_EQ_SPECIAL(def3->name, "z", %s, .c_str(),)
+    EXPECT_EQ(def3->value->val_type, IDENTIFIER, %d)
+    EXPECT_EQ_SPECIAL(def3->value->lexeme, "x", %s, .c_str(),)
 }
 
 TEST(parser, parse_assembly){

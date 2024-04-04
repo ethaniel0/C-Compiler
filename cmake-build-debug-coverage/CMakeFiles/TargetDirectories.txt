@@ -1,0 +1,4 @@
+/Users/ethanhorowitz/CLionProjects/i2c2/cmake-build-debug-coverage/CMakeFiles/i2c2.dir
+/Users/ethanhorowitz/CLionProjects/i2c2/cmake-build-debug-coverage/CMakeFiles/parser_tests.dir
+/Users/ethanhorowitz/CLionProjects/i2c2/cmake-build-debug-coverage/CMakeFiles/edit_cache.dir
+/Users/ethanhorowitz/CLionProjects/i2c2/cmake-build-debug-coverage/CMakeFiles/rebuild_cache.dir

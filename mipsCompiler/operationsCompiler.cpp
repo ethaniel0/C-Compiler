@@ -207,6 +207,40 @@ std::string comp_xor_or_eq(bool is_eq, Token* token, MipsBuilder* mipsBuilder, V
     return vals.resultTag;
 }
 
+std::string comp_sll_or_sll_eq(bool is_eq, Token* token, MipsBuilder* mipsBuilder, VariableTracker* varTracker){
+    BinaryOpToken* op = (BinaryOpToken*) token;
+    std::string left = compile_op("", op->left, mipsBuilder, varTracker);
+    Token* right = op->right;
+    if (right->val_type != NUMBER) throw std::runtime_error("Shift amount must be a number at " + right->toString());
+    int shift = stoi(right->lexeme);
+    uint8_t reg_a = varTracker->getReg(left, op->left->track);
+    if (is_eq){
+        mipsBuilder->addInstruction(new InstrSll(reg_a, reg_a, shift), "");
+        return left;
+    }
+    std::string result = varTracker->add_temp_variable();
+    uint8_t reg_result = varTracker->getReg(result, 0);
+    mipsBuilder->addInstruction(new InstrSll(reg_result, reg_a, shift), "");
+    return result;
+}
+
+std::string comp_sra_or_sra_eq(bool is_eq, Token* token, MipsBuilder* mipsBuilder, VariableTracker* varTracker){
+    BinaryOpToken* op = (BinaryOpToken*) token;
+    std::string left = compile_op("", op->left, mipsBuilder, varTracker);
+    Token* right = op->right;
+    if (right->val_type != NUMBER) throw std::runtime_error("Shift amount must be a number at " + right->toString());
+    int shift = stoi(right->lexeme);
+    uint8_t reg_a = varTracker->getReg(left, op->left->track);
+    if (is_eq){
+        mipsBuilder->addInstruction(new InstrSra(reg_a, reg_a, shift), "");
+        return left;
+    }
+    std::string result = varTracker->add_temp_variable();
+    uint8_t reg_result = varTracker->getReg(result, 0);
+    mipsBuilder->addInstruction(new InstrSra(reg_result, reg_a, shift), "");
+    return result;
+}
+
 std::string comp_lt(const std::string& break_to, Token* token, MipsBuilder* mipsBuilder, VariableTracker* varTracker){
     if (!break_to.empty()){
         RTypeVals vals = comp_bin_op_eq(token, mipsBuilder, varTracker);
@@ -404,7 +438,7 @@ std::string comp_not_eq(const std::string& break_to, Token* token, MipsBuilder* 
 
     if (!break_to.empty()){
         // literally just a bne
-        mipsBuilder->addInstruction(new InstrBne(vals.rd, vals.rt, break_to), "");
+        mipsBuilder->addInstruction(new InstrBne(vals.rs, vals.rt, break_to), "");
         return vals.resultTag;
     }
     /*
@@ -444,14 +478,15 @@ std::string compile_array_set(Token* token, Token* value, MipsBuilder* mipsBuild
     }
 
     std::string value_str = compile_op("", value, mipsBuilder, varTracker);
-    uint8_t value_reg = varTracker->getReg(value_str, value->track);
+
 
     std::string index;
     if (!use_right_num) {
         index = compile_op("", addr->right, mipsBuilder, varTracker);
     }
 
-    int mem = varTracker->getReg(var, -1);
+    uint8_t mem = varTracker->getReg(var, -1);
+    uint8_t value_reg = varTracker->getReg(value_str, value->track);
 
     if (use_right_num){
         mipsBuilder->addInstruction(new InstrSw(value_reg, mem, (int16_t) right_num), "");
@@ -459,7 +494,7 @@ std::string compile_array_set(Token* token, Token* value, MipsBuilder* mipsBuild
     else {
         uint8_t offset_reg = varTracker->getReg(index, -1);
         mipsBuilder->addInstruction(new InstrAdd(offset_reg, offset_reg, mem), "");
-        mipsBuilder->addInstruction(new InstrLw(value_reg, offset_reg, 0), "");
+        mipsBuilder->addInstruction(new InstrSw(value_reg, offset_reg, 0), "");
     }
 
     return value_str;
@@ -511,6 +546,8 @@ std::string comp_eq(Token* token, MipsBuilder* mipsBuilder, VariableTracker* var
 
     return left;
 }
+
+
 
 //endregion
 
@@ -694,7 +731,7 @@ std::string compile_array_access(Token* token, MipsBuilder* mipsBuilder, Variabl
 
     int mem_reg = varTracker->getReg(var, -1);
 
-    // on heap
+
     std::string result = varTracker->add_temp_variable();
     uint8_t reg_result = varTracker->getReg(result, 0);
 
@@ -707,10 +744,6 @@ std::string compile_array_access(Token* token, MipsBuilder* mipsBuilder, Variabl
         mipsBuilder->addInstruction(new InstrLw(reg_result, offset_reg, 0), "");
     }
     return result;
-
-
-    return result;
-
 }
 
 std::string compile_op(const std::string& break_to, Token* token, MipsBuilder* mipsBuilder, VariableTracker* varTracker){
@@ -750,6 +783,14 @@ std::string compile_op(const std::string& break_to, Token* token, MipsBuilder* m
                 return comp_xor_or_eq(false, token, mipsBuilder, varTracker);
             case TokenValue::XOR_EQ:
                 return comp_xor_or_eq(true, token, mipsBuilder, varTracker);
+            case TokenValue::LSHIFT:
+                return comp_sll_or_sll_eq(false, token, mipsBuilder, varTracker);
+            case TokenValue::LSHIFT_EQ:
+                return comp_sll_or_sll_eq(true, token, mipsBuilder, varTracker);
+            case TokenValue::RSHIFT:
+                return comp_sra_or_sra_eq(false, token, mipsBuilder, varTracker);
+            case TokenValue::RSHIFT_EQ:
+                return comp_sra_or_sra_eq(true, token, mipsBuilder, varTracker);
             case TokenValue::LT:
                 return comp_lt(break_to, token, mipsBuilder, varTracker);
             case TokenValue::LTE:
