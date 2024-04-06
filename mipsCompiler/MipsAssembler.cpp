@@ -181,6 +181,11 @@ void assembleMips(const std::string& mips, MipsBuilder* builder, VariableTracker
             builder->addInstruction(new InstrSetx(std::stoi(imm)), label);
         }
 
+        else if (token == "print"){
+            std::string rs = next_token(&tokenizer);
+            builder->addInstruction(new InstrTestLog(getInput(rs, tracker)), label);
+        }
+
         else{
             throw std::runtime_error("unknown instruction " + token);
         }

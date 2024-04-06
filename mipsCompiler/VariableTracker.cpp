@@ -71,234 +71,49 @@ std::string FreqTracker::getLeastUsed() {
     return head->var;
 }
 
+void FreqTracker::clear(){
+    FreqTrackerNode* node = head;
+    while(node != nullptr){
+        FreqTrackerNode* next = node->next;
+        delete node;
+        node = next;
+    }
+    head = nullptr;
+    tail = nullptr;
+}
+
+VariableTracker::~VariableTracker() {
+    for(auto& [name, loc] : var_to_location){
+        delete loc;
+    }
+    var_to_location.clear();
+    var_to_stack_save.clear();
+    var_to_reg_save.clear();
+    free_regs.clear();
+}
+
 int VariableTracker::get_mem_offset() {
     return mem_offset;
 }
 
-void VariableTracker::store_reg_in_memory(uint8_t reg, const std::string &var) {
-    std::string name = std::to_string(scope_level) + "-" + var;
-    if(var_to_global_mem.find(name) != var_to_global_mem.end()){
-        throw std::runtime_error("Variable already in memory");
+void VariableTracker::store_var_in_memory(const std::string& var) {
+    if (var_to_location.find(var) == var_to_location.end()) {
+        throw std::runtime_error("Variable not found");
     }
-    regFreq.remove(name);
-    var_to_reg.erase(name);
-    reg_to_var.erase(reg);
-    free_regs.push_back(reg);
+    VarLocation* loc = var_to_location[var];
+    if (loc->in_global_mem) throw std::runtime_error("Variable already in memory");
 
-    var_to_global_mem[name] = mem_offset;
-    global_mem_to_var[mem_offset] = name;
-    mipsBuilder->addInstruction(new InstrSw(reg, 0, (int16_t) mem_offset), "");
+    loc->global_mem = mem_offset;
+    loc->in_global_mem = true;
+
+    regFreq.remove(var);
+    if (loc->in_reg){
+        free_regs.push_back(loc->reg);
+        mipsBuilder->addInstruction(new InstrSw(loc->reg, 0, (int16_t) mem_offset), "");
+    }
+    loc->in_reg = false;
+
     mem_offset++;
-}
-
-uint8_t VariableTracker::getFreeReg() {
-    if(free_regs.empty()){
-        std::string least_used = regFreq.getLeastUsed();
-        uint8_t leased_used_reg = var_to_reg[least_used];
-        store_reg_in_memory(leased_used_reg, least_used);
-    }
-    return free_regs.back();
-}
-
-uint8_t VariableTracker::add_variable(const std::string &var, int reg) {
-    std::string name = std::to_string(scope_level) + "-" + var;
-    if(var_to_reg.find(name) != var_to_reg.end()){
-        throw std::runtime_error("Variable already in use");
-    }
-    if (var_to_global_mem.find(name) != var_to_global_mem.end()){
-        throw std::runtime_error("Variable already in memory");
-    }
-    regFreq.use(var);
-    uint8_t new_reg;
-    if (reg == -1) new_reg = getFreeReg();
-    else new_reg = reg;
-    free_regs.pop_back();
-    var_to_reg[name] = new_reg;
-    reg_to_var[new_reg] = name;
-    regFreq.use(name);
-    return new_reg;
-}
-
-std::string VariableTracker::add_temp_variable() {
-    uint8_t new_reg = getFreeReg();
-    std::string var = "<temp" + std::to_string(tempVarCounter++) + ">";
-    std::string name = std::to_string(scope_level) + "-" + var;
-    free_regs.pop_back();
-    var_to_reg[name] = new_reg;
-    reg_to_var[new_reg] = name;
-    regFreq.use(name);
-    return var;
-}
-
-uint8_t VariableTracker::getReg(const std::string &var, int track_number, bool modify) {
-    int scope = scope_level;
-
-    while (scope >= 0) {
-        std::string name = std::to_string(scope) + "-" + var;
-
-        if (track_number != -1) {
-            track_numbers[name] = track_number;
-        }
-
-        bool must_load = modify && vars_that_must_load.size() > 0 &&
-                std::find(
-                        vars_that_must_load.begin(), vars_that_must_load.end(),
-                        name
-                ) != vars_that_must_load.end();
-
-        // if variable is in a register, return that register
-        if (!must_load && var_to_reg.find(name) != var_to_reg.end()) {
-            return var_to_reg[name];
-        }
-
-        if (var_to_stack.find(name) != var_to_stack.end()) {
-            uint8_t reg = getFreeReg();
-            uint32_t mem = stack_offset - var_to_stack[name];
-            mipsBuilder->addInstruction(new InstrLw(reg, 29, (int16_t) mem), "");
-            return reg;
-        }
-
-        // if variable is in memory, load it into a register
-        if (var_to_global_mem.find(name) != var_to_global_mem.end()) {
-            uint8_t reg = getFreeReg();
-            uint16_t mem = var_to_global_mem[name];
-            mipsBuilder->addInstruction(new InstrLw(reg, 0, (int16_t) mem), "");
-            var_to_reg[name] = reg;
-            reg_to_var[reg] = name;
-            regFreq.use(name);
-            free_regs.erase(std::remove(free_regs.begin(), free_regs.end(), reg), free_regs.end());
-            return reg;
-        }
-        scope--;
-    }
-    return add_variable(var);
-}
-
-int VariableTracker::set_array(const std::string &var, int size) {
-    std::string name = std::to_string(scope_level) + "-" + var;
-    if (var_to_reg.find(name) != var_to_reg.end()) {
-        throw std::runtime_error("Variable " + var + " already in use");
-    }
-    if (var_to_stack.find(name) != var_to_stack.end()) {
-        throw std::runtime_error("Variable " + var + " already in stack");
-    }
-    if (var_to_global_mem.find(name) != var_to_global_mem.end()) {
-        throw std::runtime_error("Variable " + var + " already in memory");
-    }
-
-    if (scope_level == 0){
-        // store in global memory
-        uint32_t mem = mem_offset;
-        mem_offset += size;
-//        var_to_global_mem[name] = mem;
-//        global_mem_to_var[mem] = name;
-        return -mem;
-    }
-    else {
-        // store in stack
-        uint32_t mem = stack_offset;
-        stack_offset += size;
-//        var_to_stack[name] = mem;
-//        stack_to_var[mem] = name;
-        mipsBuilder->addInstruction(new InstrAddi(29, 29, (int16_t) -size), "");
-        return mem + 1;
-    }
-}
-
-bool VariableTracker::var_exists(const std::string &var) {
-    int scope = scope_level;
-    while (scope >= 0) {
-        std::string name = std::to_string(scope) + "-" + var;
-
-        // if variable is in a register, return that register
-        if (var_to_reg.find(name) != var_to_reg.end()) return true;
-
-        if (var_to_stack.find(name) != var_to_stack.end()) return true;
-
-        // if variable is in memory, load it into a register
-        if (var_to_global_mem.find(name) != var_to_global_mem.end()) return true;
-        scope--;
-    }
-    return false;
-}
-
-void VariableTracker::reserve_reg(uint8_t reg) {
-    if (reg_to_var.find(reg) == reg_to_var.end()) {
-        return;
-    }
-
-    // find free reg to take place of reserved reg
-    uint8_t new_reg = getFreeReg();
-    std::string name = reg_to_var[reg];
-    var_to_reg[name] = new_reg;
-    reg_to_var[new_reg] = name;
-    reg_to_var.erase(reg);
-    free_regs.erase(std::remove(free_regs.begin(), free_regs.end(), new_reg), free_regs.end());
-    if (reg >= 8 && reg <= 27) free_regs.push_back(reg);
-
-    mipsBuilder->addInstruction(new InstrAddi(new_reg, reg, 0), "");
-}
-
-void VariableTracker::set_track_number(const std::string &var, int track_number) {
-    std::string name = std::to_string(scope_level) + "-" + var;
-    track_numbers[name] = track_number;
-}
-
-void VariableTracker::removeVar(const std::string &var) {
-    std::string name = std::to_string(scope_level) + "-" + var;
-    regFreq.remove(name);
-    if(var_to_reg.find(name) != var_to_reg.end()){
-        regFreq.remove(name);
-        free_regs.push_back(var_to_reg[name]);
-        uint8_t reg = var_to_reg[name];
-        var_to_reg.erase(name);
-        reg_to_var.erase(reg);
-    }
-    if(var_to_global_mem.find(name) != var_to_global_mem.end()){
-        var_to_global_mem.erase(name);
-        global_mem_to_var.erase(var_to_global_mem[name]);
-    }
-    if (var_to_stack.find(name) != var_to_stack.end()) {
-        var_to_stack.erase(name);
-        stack_to_var.erase(var_to_stack[name]);
-    }
-    if (var_to_stack_save.find(name) != var_to_stack_save.end()) {
-        var_to_stack_save.erase(name);
-    }
-    if (var_to_type.find(name) != var_to_type.end()) {
-        var_to_type.erase(name);
-    }
-    vars_that_must_load.erase(std::remove(vars_that_must_load.begin(), vars_that_must_load.end(), name), vars_that_must_load.end());
-    track_numbers.erase(name);
-}
-
-void VariableTracker::renameVar(const std::string& oldVar, const std::string& newVar){
-    std::string name_old = std::to_string(scope_level) + "-" + oldVar;
-    std::string name_new = std::to_string(scope_level) + "-" + newVar;
-    if(var_to_reg.find(name_old) != var_to_reg.end()){
-        uint8_t reg = var_to_reg[name_old];
-        var_to_reg.erase(name_old);
-        var_to_reg[name_new] = reg;
-        reg_to_var[reg] = name_new;
-    }
-    if(var_to_global_mem.find(name_old) != var_to_global_mem.end()){
-        uint32_t mem = var_to_global_mem[name_old];
-        var_to_global_mem.erase(name_old);
-        var_to_global_mem[name_new] = mem;
-        global_mem_to_var[mem] = name_new;
-    }
-}
-
-void VariableTracker::clear_regs() {
-    for(auto& [name, reg] : var_to_reg){
-        free_regs.push_back(reg);
-    }
-    var_to_reg.clear();
-    reg_to_var.clear();
-    free_regs.clear();
-    for(uint8_t i = 27; i >= 8; i--){
-        free_regs.push_back(i);
-    }
 }
 
 void VariableTracker::store_reg_in_stack(uint8_t reg, const std::string& label) {
@@ -308,49 +123,277 @@ void VariableTracker::store_reg_in_stack(uint8_t reg, const std::string& label) 
     mipsBuilder->addInstruction(new InstrSw(reg, 29, (int16_t) mem), "");
     stack_offset += 1;
 
-    if (reg_to_var.find(reg) != reg_to_var.end()) {
-        std::string name = reg_to_var[reg];
-        var_to_stack[name] = mem;
-        stack_to_var[mem] = name;
+    for (auto& [name, loc] : var_to_location) {
+        if (loc->in_reg && loc->reg == reg) {
+            loc->in_stack = true;
+            loc->stack_mem = mem;
+            break;
+        }
+    }
+}
+void VariableTracker::store_var_in_stack(const std::string &var, const std::string& label) {
+    if (var_to_location.find(var) == var_to_location.end()) {
+        throw std::runtime_error("Variable " + var + " not found");
+    }
+
+    auto* loc = var_to_location[var];
+
+    if (!loc->in_reg) return;
+
+    uint32_t mem = stack_offset;
+
+    mipsBuilder->addInstruction((new InstrAddi(29, 29, -1)), label);
+    mipsBuilder->addInstruction(new InstrSw(loc->reg, 29, (int16_t) mem), "");
+    loc->in_stack = true;
+    loc->stack_mem = mem;
+    stack_offset++;
+}
+void VariableTracker::add_stack_offset(int offset) {
+    stack_offset += offset;
+    mipsBuilder->addInstruction(new InstrAddi(29, 29, (int16_t) -offset), "");
+}
+void VariableTracker::reduce_stack_offset(int offset) {
+    stack_offset -= offset;
+    mipsBuilder->addInstruction(new InstrAddi(29, 29, (int16_t) offset), "");
+}
+
+uint8_t VariableTracker::getFreeReg() {
+    if(free_regs.empty()){
+        std::string least_used = regFreq.getLeastUsed();
+        if (var_to_location.find(least_used) == var_to_location.end()) {
+            throw std::runtime_error("Compilation error) Variable " + least_used + " not found");
+        }
+        store_var_in_memory(least_used);
+    }
+    uint8_t reg = free_regs.back();
+    free_regs.pop_back();
+    return reg;
+}
+
+uint8_t VariableTracker::add_variable(const std::string &var, int reg) {
+    std::string name = std::to_string(scope_level) + "-" + var;
+    if (var_to_location.find(name) != var_to_location.end()){
+        throw std::runtime_error("Variable already in use");
+    }
+    regFreq.use(var);
+    uint8_t new_reg;
+    if (reg == -1){
+        new_reg = getFreeReg();
+    }
+    else{
+        reserve_reg(reg);
+        new_reg = reg;
+    }
+
+    auto* loc = new VarLocation();
+    loc->reg = new_reg;
+    loc->in_reg = true;
+    var_to_location[name] = loc;
+
+    regFreq.use(name);
+    return new_reg;
+}
+
+std::string VariableTracker::add_temp_variable() {
+    uint8_t new_reg = getFreeReg();
+    std::string var = "<temp" + std::to_string(tempVarCounter++) + ">";
+    std::string name = std::to_string(scope_level) + "-" + var;
+    auto loc = new VarLocation();
+    loc->reg = new_reg;
+    loc->in_reg = true;
+    var_to_location[name] = loc;
+    regFreq.use(name);
+    return var;
+}
+
+uint8_t VariableTracker::getReg(const std::string &var, int track_number, bool modify) {
+    int scope = scope_level;
+
+    while (scope >= 0) {
+        std::string name = std::to_string(scope) + "-" + var;
+        if (var_to_location.find(name) == var_to_location.end()){
+            scope--;
+            continue;
+        }
+        VarLocation* loc = var_to_location[name];
+
+        if (track_number != -1) {
+            var_to_location[name]->track_number = track_number;
+        }
+
+        bool must_load = modify && loc->must_load;
+
+        // if variable is in a register, return that register
+        if (loc->in_reg && !must_load) {
+            regFreq.use(name);
+            return loc->reg;
+        }
+
+        // if variable is in memory, load it into a register
+        if (loc->in_stack || loc->in_stack_save) {
+            uint32_t mem;
+            if (loc->in_stack) {
+                mem = stack_offset - loc->stack_mem;
+            }
+            else {
+                mem = stack_offset - loc->save_location;
+            }
+            uint8_t reg = getFreeReg();
+//            uint32_t mem = stack_offset - loc->stack_mem;
+            mipsBuilder->addInstruction(new InstrLw(reg, 29, (int16_t) mem), "");
+
+            regFreq.use(name);
+            loc->in_reg = true;
+            loc->reg = reg;
+
+            return reg;
+        }
+
+        if (loc->in_global_mem){
+            uint8_t reg = getFreeReg();
+            mipsBuilder->addInstruction(new InstrLw(reg, 0, (int16_t) loc->global_mem), "");
+
+            regFreq.use(name);
+            loc->in_reg = true;
+            loc->reg = reg;
+
+            return reg;
+        }
+        scope--;
+    }
+    return add_variable(var);
+}
+
+int VariableTracker::set_array(const std::string &var, int size) {
+    std::string name = std::to_string(scope_level) + "-" + var;
+    if (var_to_location.find(name) != var_to_location.end()) {
+        throw std::runtime_error("Variable " + var + " already in use");
+    }
+    if (scope_level == 0){
+        // store in global memory
+        uint32_t mem = mem_offset;
+        mem_offset += size;
+        return -mem;
+    }
+    else {
+        // store in stack
+        uint32_t mem = stack_offset;
+        stack_offset += size;
+        mipsBuilder->addInstruction(new InstrAddi(29, 29, (int16_t) -size), "");
+        return mem + 1;
+    }
+}
+
+bool VariableTracker::var_exists(const std::string &var) {
+    int scope = scope_level;
+    while (scope >= 0) {
+        std::string name = std::to_string(scope) + "-" + var;
+        if (var_to_location.find(name) != var_to_location.end()) return true;
+        scope--;
+    }
+    return false;
+}
+
+void VariableTracker::reserve_reg(uint8_t reg) {
+    for (auto& [name, loc] : var_to_location) {
+        if (loc->in_reg && loc->reg == reg) {
+            uint8_t new_reg = getFreeReg();
+            loc->reg = new_reg;
+            if (reg >= 8 && reg <= 27) free_regs.push_back(reg);
+            mipsBuilder->addInstruction(new InstrAddi(new_reg, reg, 0), "");
+            break;
+        }
+    }
+}
+
+void VariableTracker::set_track_number(const std::string &var, int track_number) {
+    std::string name = std::to_string(scope_level) + "-" + var;
+    if (var_to_location.find(name) != var_to_location.end()) {
+        var_to_location[name]->track_number = track_number;
+    }
+    else {
+        throw std::runtime_error("Variable " + var + " not found");
+    }
+}
+
+void VariableTracker::removeVar(const std::string &var) {
+    std::string name = std::to_string(scope_level) + "-" + var;
+    regFreq.remove(name);
+    if (var_to_location.find(name) == var_to_location.end()) {
+        return;
+    }
+    VarLocation* loc = var_to_location[name];
+    if (loc->in_reg){
+        free_regs.push_back(loc->reg);
+    }
+    var_to_location.erase(name);
+    regFreq.remove(name);
+    delete loc;
+
+    if (var_to_stack_save.find(name) != var_to_stack_save.end()) {
+        var_to_stack_save.erase(name);
+    }
+}
+
+void VariableTracker::renameVar(const std::string& oldVar, const std::string& newVar){
+    std::string name_old = std::to_string(scope_level) + "-" + oldVar;
+    std::string name_new = std::to_string(scope_level) + "-" + newVar;
+
+    if (var_to_location.find(name_old) == var_to_location.end()){
+        throw std::runtime_error("Variable " + oldVar + " not found");
+    }
+
+    VarLocation* loc = var_to_location[name_old];
+    var_to_location.erase(name_old);
+    var_to_location[name_new] = loc;
+}
+
+void VariableTracker::clear_regs() {
+    for (auto& [name, loc] : var_to_location) {
+        if (loc->in_reg) {
+            free_regs.push_back(loc->reg);
+            loc->in_reg = false;
+        }
+    }
+    free_regs.clear();
+    for(uint8_t i = 27; i >= 8; i--){
+        free_regs.push_back(i);
     }
 }
 
 void VariableTracker::store_current_regs_in_stack() {
 
-    int size = (int) var_to_reg.size();
+    std::vector<VarLocation*> to_store;
+    std::vector<std::string> to_store_names;
 
-    for (auto &[name, reg]: var_to_reg) {
-        if (track_numbers.find(name) != track_numbers.end() && track_numbers[name] == 2) {
-            size--;
+    for (auto &[name, loc]: var_to_location) {
+        if (loc->in_reg) {
+            to_store.push_back(loc);
+            to_store_names.push_back(name);
         }
     }
 
     if (scope_level > 0) {
         // store reg31 in stack
-        size += 1;
+        int size = to_store.size() + 1;
         mipsBuilder->addInstruction(new InstrAddi(29, 29, (int16_t) -size), "");
         mipsBuilder->addInstruction(new InstrSw(31, 29, (int16_t) 0), "");
-        int16_t i = 1;
         stack_offset += size;
         stack_save_offset += size;
-        for (auto &[name, reg]: var_to_reg) {
-
-            if (track_numbers.find(name) != track_numbers.end() && track_numbers[name] == 2) {
-                continue;
-            }
-
-            mipsBuilder->addInstruction(new InstrSw(reg, 29, i), "");
-            var_to_stack_save[name] = i;
-            i++;
+        for (int i = 1; i < size; i++){
+            auto loc = to_store[i-1];
+            mipsBuilder->addInstruction(new InstrSw(loc->reg, 29, i), "");
+            loc->save_location = stack_offset - i;
+            loc->in_stack_save = true;
+            var_to_stack_save[to_store_names[i-1]] = loc;
         }
-
     }
     else {
         // store in mem
-        for (auto &[name, reg]: var_to_reg) {
-            mipsBuilder->addInstruction(new InstrSw(reg, 0, (int16_t) mem_offset), "");
-            var_to_global_mem[name] = mem_offset;
-            global_mem_to_var[mem_offset] = name;
+        for (auto loc : to_store) {
+            loc->in_global_mem = true;
+            loc->global_mem = mem_offset;
+            mipsBuilder->addInstruction(new InstrSw(loc->reg, 0, (int16_t) mem_offset), "");
             mem_offset++;
         }
     }
@@ -363,12 +406,13 @@ void VariableTracker::restore_regs_from_stack() {
     // restore reg31
     mipsBuilder->addInstruction(new InstrLw(31, 29, 0), "");
 
-    for (auto &[name, mem]: var_to_stack_save) {
-        uint8_t reg = getFreeReg();
-        mipsBuilder->addInstruction(new InstrLw(reg, 29, (int16_t) mem), "");
-        var_to_reg[name] = reg;
-        reg_to_var[reg] = name;
-        free_regs.erase(std::remove(free_regs.begin(), free_regs.end(), reg), free_regs.end());
+    for (auto &[name, loc]: var_to_stack_save) {
+        reserve_reg(loc->reg);
+        loc->in_reg = true;
+        loc->in_stack_save = false;
+        free_regs.erase(std::remove(free_regs.begin(), free_regs.end(), loc->reg), free_regs.end());
+        uint32_t mem = stack_offset - loc->save_location;
+        mipsBuilder->addInstruction(new InstrLw(loc->reg, 29, (int16_t) mem), "");
         regFreq.use(name);
     }
 
@@ -376,25 +420,17 @@ void VariableTracker::restore_regs_from_stack() {
     mipsBuilder->addInstruction(new InstrAddi(29, 29, (int16_t) stack_save_offset), "");
     stack_offset -= stack_save_offset;
     stack_save_offset = 0;
-    var_to_stack.clear();
-    stack_to_var.clear();
-
 }
 
-void VariableTracker::incScope() {
+void VariableTracker::incScope(){
     scope_level++;
+    regFreq.clear();
 
-    for (auto &[name, mem]: var_to_stack) {
-        regFreq.remove(name);
-        regFreq.use(name);
-    }
-
-    saved_var_to_reg.clear();
-
-    for (auto &[name, reg]: var_to_reg) {
-        regFreq.remove(name);
-        regFreq.use(name);
-        saved_var_to_reg[name] = reg;
+    for (auto& [name, loc] : var_to_location) {
+        if (loc->in_reg) {
+            var_to_reg_save[name] = loc;
+            loc->reg_save = loc->reg;
+        }
     }
 
     clear_regs();
@@ -402,24 +438,22 @@ void VariableTracker::incScope() {
 
 void VariableTracker::decScope() {
     scope_level--;
-    stack_to_var.clear();
-//    mipsBuilder->addInstruction(new InstrAddi(29, 29, (int16_t) stack_offset), "");
-//    stack_offset = 0;
+    regFreq.clear();
 
-    for(auto& [name, mem] : var_to_stack){
-        regFreq.remove(name);
-        regFreq.use(name);
-        var_to_type.erase(name);
-    }
+    std::vector<std::string> names_to_delete;
 
-    for(auto& [name, reg] : var_to_reg){
-        // on scope level 0, store word back into appropriate memory location
-        if (name[0] == '0'){
-            uint32_t mem = var_to_global_mem[name];
-            mipsBuilder->addInstruction(new InstrSw(reg, 0, (int16_t) mem), "");
+    for (auto& [name, loc] : var_to_location) {
+        if (loc->in_reg && name[0] == '0') {
+            mipsBuilder->addInstruction(new InstrSw(loc->reg, 0, (int16_t) loc->global_mem), "");
         }
-        regFreq.remove(name);
-        var_to_type.erase(name);
+        else if (name[0] == '1'){
+            names_to_delete.push_back(name);
+        }
+    }
+    for (auto& name : names_to_delete){
+        auto* loc = var_to_location[name];
+        var_to_location.erase(name);
+        delete loc;
     }
 
     clear_regs();
@@ -429,21 +463,30 @@ void VariableTracker::decScope() {
         stack_offset = 0;
     }
 
-    var_to_stack.clear();
-    stack_to_var.clear();
-
-    // restore saved variables
-    for(auto& [name, reg] : saved_var_to_reg){
-        var_to_reg[name] = reg;
-        reg_to_var[reg] = name;
+    // restore reg spots
+    for (auto& [name, loc] : var_to_reg_save) {
+        loc->in_reg = true;
+        loc->reg = loc->reg_save;
+        free_regs.erase(std::remove(free_regs.begin(), free_regs.end(), loc->reg), free_regs.end());
         regFreq.use(name);
     }
 }
 
-void VariableTracker::add_var_that_must_load(const std::string &var) {
-    // add to vars_that_must_load if it doesn't already exist
-    if (std::find(vars_that_must_load.begin(), vars_that_must_load.end(), var) == vars_that_must_load.end()) {
-        vars_that_must_load.push_back(var);
+void VariableTracker::clean_temp_variables() {
+    std::vector<std::string> to_delete;
+    std::string look_for = std::to_string(scope_level) + "-<temp";
+    for (auto& [name, loc] : var_to_location) {
+        if (name.find(look_for) != std::string::npos) {
+            to_delete.push_back(name);
+        }
+    }
+    for (auto& name : to_delete) {
+        auto* loc = var_to_location[name];
+        if (loc->in_reg) {
+            free_regs.push_back(loc->reg);
+        }
+        var_to_location.erase(name);
+        delete loc;
     }
 }
 
@@ -451,33 +494,31 @@ int VariableTracker::get_mem_addr(const std::string &var) {
     std::string name = std::to_string(scope_level) + "-" + var;
     std::string name_global = "0-" + var;
 
-    if (var_to_stack.find(name) != var_to_stack.end()) {
-        add_var_that_must_load(name);
-        return stack_offset - var_to_stack[name] - 1;
-    }
-    else if (scope_level > 0 && var_to_reg.find(name) != var_to_reg.end()) {
-        // add to stack
-        uint8_t reg = var_to_reg[name];
-        store_reg_in_stack(reg, "");
-        add_var_that_must_load(name);
-        return stack_offset - var_to_stack[name];
-    }
-    else if (var_to_global_mem.find(name_global) != var_to_global_mem.end()) {
-        add_var_that_must_load(name_global);
-        return -var_to_global_mem[name_global];
+    if (var_to_location.find(name) == var_to_location.end() &&
+        var_to_location.find(name_global) == var_to_location.end()) {
+        throw std::runtime_error("Variable " + var + " not found");
     }
 
+    bool loc_name = var_to_location.find(name) != var_to_location.end();
+
+    auto* loc = loc_name ? var_to_location[name] : var_to_location[name_global];
+    loc->must_load = true;
+
+    if (loc->in_stack) return stack_offset - loc->stack_mem - 1;
+    if (scope_level > 0 && loc->in_reg) {
+        store_reg_in_stack(loc->reg, "");
+        return stack_offset - loc->stack_mem;
+    }
+    if (loc->in_global_mem) return -loc->global_mem;
+
     // save in mem or stack
-    uint8_t reg = getReg(var, -1);
     if (scope_level == 0) {
-        store_reg_in_memory(reg, var);
-        add_var_that_must_load(name_global);
-        return -var_to_global_mem[name];
+        store_var_in_memory(name_global);
+        return -loc->global_mem;
     }
     else {
-        store_reg_in_stack(reg, "");
-        add_var_that_must_load(name);
-        return stack_offset - var_to_stack[name];
+        store_var_in_stack(name, "");
+        return stack_offset - loc->stack_mem;
     }
 }
 
@@ -487,23 +528,14 @@ void VariableTracker::set_var_type(const std::string &var, TokenValue type) {
 
     while (scope >= 0) {
         std::string name = std::to_string(scope) + "-" + var;
-
-        // if variable is in a register, return that register
-        if (var_to_reg.find(name) != var_to_reg.end()) {
-            var_to_type[name] = type;
-            return;
+        if (var_to_location.find(name) == var_to_location.end()) {
+            scope--;
+            continue;
         }
 
-        if (var_to_stack.find(name) != var_to_stack.end()) {
-            var_to_type[name] = type;
-            return;
-        }
+        auto* loc = var_to_location[name];
+        loc->type = type;
 
-        // if variable is in memory, load it into a register
-        if (var_to_global_mem.find(name) != var_to_global_mem.end()) {
-            var_to_type[name] = type;
-            return;
-        }
         scope--;
     }
 }
@@ -514,10 +546,11 @@ TokenValue VariableTracker::get_var_type(const std::string &var) {
 
     while (scope >= 0) {
         std::string name = std::to_string(scope) + "-" + var;
-
-        if (var_to_type.find(name) != var_to_type.end()) {
-            return var_to_type[name];
+        if (var_to_location.find(name) == var_to_location.end()) {
+            continue;
         }
+        auto* loc = var_to_location[name];
+        return loc->type;
     }
     return TokenValue::VOID;
 }

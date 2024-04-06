@@ -292,8 +292,7 @@ void compile_function(BreakScope* breakScope, Token* token, MipsBuilder* mipsBui
 
     // load first four arguments into registers
     for (int i = 0; i < function->parameters.size() && i < 4; i++){
-        uint8_t reg = varTracker->add_variable(function->parameters[i]->name, 4+i);
-//        mipsBuilder->addInstruction(new InstrAddi(reg, 4+i, 0), "");
+        varTracker->add_variable(function->parameters[i]->name, 4+i);
     }
 
     // if more arguments, load them into stack pointer

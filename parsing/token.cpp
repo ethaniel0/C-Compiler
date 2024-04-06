@@ -115,8 +115,9 @@ std::vector<Token> tokenize(std::string source) {
 
         switch (c) {
             case '\n':
-            case '\r':
                 line++;
+                break;
+            case '\r':
                 break;
             case ' ':
             case '\t':
@@ -195,6 +196,7 @@ std::vector<Token> tokenize(std::string source) {
                     while (current < source.size() && source.at(current) != '\n') {
                         current++;
                     }
+                    if (source.at(current) == '\n') line++;
                     break;
                 }
                 if (current < source.size() - 1 && source.at(current + 1) == '=') {
@@ -384,6 +386,7 @@ std::vector<Token> tokenize(std::string source) {
                             define += source.at(current);
                             current++;
                         }
+                        if (source.at(current) == '\n') line++;
 
                         defines[define_key] = tokenize(define);
                     }

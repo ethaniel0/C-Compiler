@@ -488,6 +488,9 @@ std::string compile_array_set(Token* token, Token* value, MipsBuilder* mipsBuild
     uint8_t mem = varTracker->getReg(var, -1);
     uint8_t value_reg = varTracker->getReg(value_str, value->track);
 
+    if (value->val_type != TokenValue::IDENTIFIER)
+        varTracker->removeVar(value_str);
+
     if (use_right_num){
         mipsBuilder->addInstruction(new InstrSw(value_reg, mem, (int16_t) right_num), "");
     }
@@ -495,7 +498,13 @@ std::string compile_array_set(Token* token, Token* value, MipsBuilder* mipsBuild
         uint8_t offset_reg = varTracker->getReg(index, -1);
         mipsBuilder->addInstruction(new InstrAdd(offset_reg, offset_reg, mem), "");
         mipsBuilder->addInstruction(new InstrSw(value_reg, offset_reg, 0), "");
+
+        if (addr->right->val_type != TokenValue::IDENTIFIER)
+            varTracker->removeVar(index);
     }
+
+    if (addr->left->val_type != TokenValue::IDENTIFIER)
+        varTracker->removeVar(var);
 
     return value_str;
 
@@ -546,8 +555,6 @@ std::string comp_eq(Token* token, MipsBuilder* mipsBuilder, VariableTracker* var
 
     return left;
 }
-
-
 
 //endregion
 
@@ -638,6 +645,20 @@ std::string comp_not(const std::string& break_to, Token* token, MipsBuilder* mip
 
 //endregion
 
+
+std::string compile_inline_function_call(FunctionCallToken* call, MipsBuilder* mipsBuilder, VariableTracker* varTracker){
+    std::vector<std::string> args;
+    std::map<std::string, std::string> renamed_vars;
+
+    for (Token* arg : call->arguments){
+        std::string name = compile_op("", arg, mipsBuilder, varTracker);
+        varTracker->set_track_number(name, 2);
+        args.push_back(name);
+    }
+
+    return "";
+}
+
 std::string compile_function_call(Token* token, MipsBuilder* mipsBuilder, VariableTracker* varTracker){
     auto* call = (FunctionCallToken*) token;
     std::vector<std::string> args;
@@ -672,7 +693,7 @@ std::string compile_function_call(Token* token, MipsBuilder* mipsBuilder, Variab
     if (args.size() > 4){
         // load arguments into stack pointer
         int num_args_left = args.size() - 4;
-        mipsBuilder->addInstruction(new InstrAddi(SP, SP, -num_args_left), "");
+        varTracker->add_stack_offset(num_args_left);
         for (int i = 4; i < args.size(); i++){
             mipsBuilder->addInstruction(new InstrSw(varTracker->getReg(args[i], 0), SP, i-4), "");
         }
@@ -684,17 +705,11 @@ std::string compile_function_call(Token* token, MipsBuilder* mipsBuilder, Variab
     // bring stack back from arguments
     if (args.size() > 4){
         int num_args_left = args.size() - 4;
-        mipsBuilder->addInstruction(new InstrAddi(SP, SP, num_args_left), "");
+        varTracker->reduce_stack_offset(num_args_left);
     }
 
     // restore registers
     varTracker->restore_regs_from_stack();
-
-    // restore stack pointer
-    if (args.size() > 4){
-        int num_args_left = args.size() - 4;
-        mipsBuilder->addInstruction(new InstrAddi(SP, SP, num_args_left), "");
-    }
 
     // save v0 into a register
     if (call->returnType != VOID){
@@ -730,7 +745,6 @@ std::string compile_array_access(Token* token, MipsBuilder* mipsBuilder, Variabl
     }
 
     int mem_reg = varTracker->getReg(var, -1);
-
 
     std::string result = varTracker->add_temp_variable();
     uint8_t reg_result = varTracker->getReg(result, 0);

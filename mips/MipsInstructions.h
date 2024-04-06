@@ -303,7 +303,7 @@ public:
         }
         else {
             bool writing_mode = addr >= 12288;
-            int pin = (addr & 0b111111);
+            int pin = (addr & 0b11111);
             uint32_t mode = regfile->get(rd);
             std::string mode_str = writing_mode ? mode ? "OUTPUT" : "INPUT" : mode ? "HIGH" : "LOW";
             printf("Writing pin %d %s to %s\n", pin, writing_mode ? "mode" : "value", mode_str.c_str());
@@ -582,17 +582,18 @@ public:
 class InstrTestLog : public Instruction{
 private:
     uint8_t rd;
-    TestLog* log;
 public:
-    explicit InstrTestLog(uint8_t rd, TestLog* log): Instruction(I_TEST_LOG){
+    explicit InstrTestLog(uint8_t rd): Instruction(I_TEST_LOG){
         this->rd = rd;
-        this->log = log;
     }
     void execute(int32_t *dmem, RegisterFile* regfile, uint32_t* pc) override{
-        log->add(regfile->get(rd));
+        printf("Register %d = %d\n", rd, regfile->get(rd));
     }
     std::string export_str() override{
-        return "testlog $" + std::to_string(rd);
+        return "";
+    }
+    uint32_t export_mem() override{
+        return 0;
     }
 };
 

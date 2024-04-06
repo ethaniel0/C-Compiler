@@ -63,10 +63,11 @@ public:
         if (context.find(name) != context.end()){
             if (identifiers.find(name) == identifiers.end()){
                 identifiers[name] = token;
+                token->track = 0;
             }
             else {
                 identifiers[name]->track = 1;
-                token->track = 2;
+                token->track = 0;
                 identifiers[name] = token;
             }
 
@@ -80,10 +81,11 @@ public:
 
         if (identifiers.find(name) == identifiers.end()){
             identifiers[name] = value;
+            value->track = 0;
         }
         else {
             identifiers[name]->track = 1;
-            value->track = 2;
+            value->track = 0;
             identifiers[name] = value;
         }
     }

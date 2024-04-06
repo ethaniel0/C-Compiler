@@ -40,53 +40,70 @@ public:
     void remove(const std::string& var);
     void use(const std::string& var);
     std::string getLeastUsed();
+    void clear();
 };
 
-struct MemLocation{
-    uint32_t addr;
-    bool on_stack;
-    bool exists;
+struct VarLocation{
+    uint8_t reg;
+    bool in_reg;
+
+    uint32_t global_mem;
+    bool in_global_mem;
+
+    uint32_t stack_mem;
+    bool in_stack;
+
+    uint32_t stack_save;
+    bool in_stack_save;
+
+    uint8_t reg_save;
+
+    uint32_t save_location;
+    int track_number;
+    bool must_load;
+
+    TokenValue type;
+
+    VarLocation(){
+        reg = 0;
+        in_reg = false;
+        global_mem = 0;
+        in_global_mem = false;
+        stack_mem = 0;
+        in_stack = false;
+        stack_save = 0;
+        in_stack_save = false;
+        track_number = 0;
+        must_load = false;
+        type = TokenValue::NONE;
+    }
 };
 
 class VariableTracker {
 private:
     MipsBuilder* mipsBuilder;
-
-    std::map<std::string, uint8_t> var_to_reg;
-    std::map<uint8_t, std::string> reg_to_var;
-
-    std::map<std::string, int> track_numbers;
-
-    std::map<std::string, uint8_t> saved_var_to_reg;
-
     FreqTracker regFreq;
 
-    std::map<std::string, uint32_t> var_to_global_mem;
-    std::map<uint32_t, std::string> global_mem_to_var;
+    std::map<std::string, VarLocation*> var_to_location;
+    std::map<std::string, VarLocation*> var_to_stack_save;
+    std::map<std::string, VarLocation*> var_to_reg_save;
 
-    std::map<std::string, TokenValue> var_to_type;
-
-    int mem_offset;
-
-    int scope_level = 0;
-    std::map<std::string, uint32_t> var_to_stack;
-    std::map<uint32_t, std::string> stack_to_var;
-    std::map<std::string, uint32_t> var_to_stack_save;
-
-    std::vector<std::string> vars_that_must_load;
-
-    std::vector<uint8_t> free_regs;
-
+    int mem_offset = 0;
     int stack_offset = 0;
     int stack_save_offset = 0;
-    void store_reg_in_memory(uint8_t reg, const std::string& var);
+
+    int scope_level = 0;
+
+    std::vector<uint8_t> free_regs;
 
     void clear_regs();
 
     uint8_t getFreeReg();
     int tempVarCounter = 0;
 
-    void add_var_that_must_load(const std::string& var);
+    void store_reg_in_stack(uint8_t reg, const std::string& label);
+    void store_var_in_stack(const std::string& var, const std::string& label);
+    void store_var_in_memory(const std::string& var);
 public:
     explicit VariableTracker(MipsBuilder* builder){
         mem_offset = 0;
@@ -95,30 +112,61 @@ public:
             free_regs.push_back(i);
         }
     }
+    ~VariableTracker();
     
     std::string add_temp_variable();
     int get_mem_offset();
 
-    // get the register of a variable, load it from memory into a register, or add if it doesn't exist
+    /// Gets the register of a variable, loads it from memory into a register, or adds if it doesn't exist
     uint8_t getReg(const std::string& var, int track_number, bool modify=true);
+
+    /// Allocates a constant amount amount of memory in the stack or heap for an array at compile time
     int set_array(const std::string& var, int size);
+
+    /// Sets the type of a variable
     void set_var_type(const std::string& var, TokenValue type);
+    /// Gets the type of a variable
     TokenValue get_var_type(const std::string& var);
 
+    /// Returns if a variable exists
     bool var_exists(const std::string& var);
+
+    /// Makes sure that a register is free. If not already free,
+    /// the variable already existing in that register will be moved.
     void reserve_reg(uint8_t reg);
+
+    /// Sets the tracking number of a variable
     void set_track_number(const std::string& var, int track_number);
+
+    /// Adds a variable to a register. If not specified, the register will be the first one available.
     uint8_t add_variable(const std::string& var, int reg=-1);
+
+    /// Removes a variable from the tracker
     void removeVar(const std::string& var);
+
+    /// Renames a variable
     void renameVar(const std::string& oldVar, const std::string& newVar);
-    void store_reg_in_stack(uint8_t reg, const std::string& label);
+
+    /// Stores all current working variables in the stack (to use before a function call)
     void store_current_regs_in_stack();
+
+    /// Restores all working variables from the stack (to use after a function call)
     void restore_regs_from_stack();
 
+    void add_stack_offset(int offset);
+    void reduce_stack_offset(int offset);
+
+    /// Increases the scope. Clears register frequency tracking.
     void incScope();
+
+    /// Decreases the scope. Clears register frequency tracking. Loads any changed global variable values back into memory.
     void decScope();
 
-    // returns negative address for global, positive address for stack. If on positive, subtract 1
+    void clean_temp_variables();
+
+    /// Gets a variable's address in memory.
+    /// Returns a negative or zero address for global variables, positive address for stack.
+    /// If positive (on stack), subtract 1
     int get_mem_addr(const std::string& var);
     void remove_from_regs(const std::string& var);
 };

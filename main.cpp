@@ -101,6 +101,11 @@ int main(int argc, char** argv) {
             out.write(bits.to_string().c_str(), 32);
             out << std::endl;
         }
+        if (mem.size() < 4095){
+            for (int i = 0; i < 4095 - mem.size(); i++) {
+                out << "00000000000000000000000000000000" << std::endl;
+            }
+        }
     }
     else {
         std::cerr << "Invalid output type " << output_type << std::endl;
@@ -110,7 +115,7 @@ int main(int argc, char** argv) {
     if (run){
         std::vector<Instruction*> instructions = builder.getInstructions();
         MipsRunner runner(2048, instructions.data(), instructions.size());
-        int num_cycles = runner.run(2000);
+        int num_cycles = runner.run(800);
         printf("Ran for %d cycles\n", num_cycles);
         for (const std::string& var : runVars){
             uint8_t reg = tracker.getReg(var, -1, false);
