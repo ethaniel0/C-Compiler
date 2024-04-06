@@ -674,18 +674,22 @@ std::string compile_function_call(Token* token, MipsBuilder* mipsBuilder, Variab
     if (!args.empty()){
         varTracker->reserve_reg(4);
         mipsBuilder->addInstruction(new InstrAdd(4, 0, varTracker->getReg(args[0], -1)), "");
+        if (args[0].find("<temp") != std::string::npos) varTracker->removeVar(args[0]);
     }
     if (args.size() >= 2){
         varTracker->reserve_reg(5);
         mipsBuilder->addInstruction(new InstrAdd(5, 0, varTracker->getReg(args[1], -1)), "");
+        if (args[1].find("<temp") != std::string::npos) varTracker->removeVar(args[1]);
     }
     if (args.size() >= 3){
         varTracker->reserve_reg(6);
         mipsBuilder->addInstruction(new InstrAdd(6, 0, varTracker->getReg(args[2], -1)), "");
+        if (args[2].find("<temp") != std::string::npos) varTracker->removeVar(args[2]);
     }
     if (args.size() >= 4){
         varTracker->reserve_reg(7);
         mipsBuilder->addInstruction(new InstrAdd(7, 0, varTracker->getReg(args[3], -1)), "");
+        if (args[3].find("<temp") != std::string::npos) varTracker->removeVar(args[3]);
     }
 
     varTracker->store_current_regs_in_stack();
@@ -696,6 +700,7 @@ std::string compile_function_call(Token* token, MipsBuilder* mipsBuilder, Variab
         varTracker->add_stack_offset(num_args_left);
         for (int i = 4; i < args.size(); i++){
             mipsBuilder->addInstruction(new InstrSw(varTracker->getReg(args[i], 0), SP, i-4), "");
+            if (args[i].find("<temp") != std::string::npos) varTracker->removeVar(args[i]);
         }
     }
 

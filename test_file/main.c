@@ -76,10 +76,8 @@ int main(){
     int step = 18;
 
     while(1) {
-        step = step;
         stepMotor(step);
         step += 1;
         __asm__("print (step)");
     }
-    step = 0;
 }
