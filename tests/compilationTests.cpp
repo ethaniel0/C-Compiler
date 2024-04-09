@@ -55,7 +55,7 @@ TEST(compilation, one_def){
     BreakScope breakScope;
     std::string result = compile_expr(&breakScope, def, &builder, &tracker);
 
-    uint8_t result_reg = tracker.getReg(result, -1);
+    uint8_t result_reg = tracker.getReg(result, false);
 
     builder.linkLabels();
 
@@ -82,19 +82,19 @@ TEST(compilation, def_with_expression){
     ASSERT_EQ(expr->type, TokenType::TYPE_OPERATOR, %d)
     ASSERT_EQ(expr->val_type, TokenValue::ADD, %d)
 
-    ASSERT_EQ(expr->left->val_type, TokenValue::NUMBER, %d)
+    ASSERT_EQ(expr->left->val_type, TokenValue::NUMBER_INT, %d)
     ASSERT_EQ(expr->right->type, TokenType::TYPE_OPERATOR, %d)
     ASSERT_EQ(expr->right->val_type, TokenValue::MULT, %d)
     auto* mult = (BinaryOpToken*) expr->right;
-    ASSERT_EQ(mult->left->val_type, TokenValue::NUMBER, %d)
-    ASSERT_EQ(mult->right->val_type, TokenValue::NUMBER, %d)
+    ASSERT_EQ(mult->left->val_type, TokenValue::NUMBER_INT, %d)
+    ASSERT_EQ(mult->right->val_type, TokenValue::NUMBER_INT, %d)
 
     MipsBuilder builder;
     VariableTracker tracker(&builder);
     BreakScope breakScope;
     std::string result = compile_expr(&breakScope, def, &builder, &tracker);
 
-    uint8_t result_reg = tracker.getReg(result, -1);
+    uint8_t result_reg = tracker.getReg(result, false);
 
     builder.linkLabels();
 
@@ -124,8 +124,8 @@ TEST(compilation, two_dependent_defs){
     compile_expr(&breakScope, ast[1], &builder, &tracker);
 
 
-    uint8_t result_reg1 = tracker.getReg("a", -1);
-    uint8_t result_reg2 = tracker.getReg("b", -1);
+    uint8_t result_reg1 = tracker.getReg("a", false);
+    uint8_t result_reg2 = tracker.getReg("b", false);
 
     builder.linkLabels();
 
@@ -174,7 +174,7 @@ int test_with_regs(std::string source, int cycles, std::map<std::string, int32_t
             uint32_t mem_addr = tracker.get_mem_addr(pair.first);
             result = runner.get_mem(mem_addr);
         } else {
-            uint8_t result_reg = tracker.getReg(pair.first, -1, false);
+            uint8_t result_reg = tracker.getReg(pair.first, false);
             result = runner.get_reg(result_reg);
         }
         EXPECT_EQ(result, pair.second, %d)
@@ -673,7 +673,7 @@ TEST(compilation, set_var_to_not){
             {"a", 1},
             {"b", 2}
     };
-    test_with_regs(code, 10, valMap);
+    test_with_regs(code, 20, valMap);
 
     char code2[] = "int b = 0;"
                   "int a = !b;";
@@ -1299,13 +1299,13 @@ TEST(compilation, array_access_with_expression){
 }
 
 TEST(compilation, array_set_with_expression){
-    char code[] = "int a[5];"
-                  "int x = 4;"
-                  "a[x-4] = 1;"
-                  "a[x * 2 - 7] = 2;"
-                  "a[x/2] = 3;"
-                  "a[x - x + 3] = 4;"
-                  "a[x] = 5;"
+    char code[] = "int a[5];\n"
+                  "int x = 4;\n"
+                  "a[x-4] = 1;\n"
+                  "a[x * 2 - 7] = 2;\n"
+                  "a[x/2] = 3;\n"
+                  "a[x - x + 3] = 4;\n"
+                  "a[x] = 5;\n"
                   ""
                   "int b = a[0];"
                   "int c = a[1];"
@@ -1381,3 +1381,126 @@ TEST(compilation, with_main_function){
     };
     test_with_regs(code, 10, valMap, false, true);
 }
+
+TEST(compilation, set_large_number){
+    char code[] = "int a = 0;"
+                  "a = 262142;";
+    std::map<std::string, int32_t> valMap = {
+            {"a", 262142}
+    };
+    test_with_regs(code, 10, valMap);
+}
+
+TEST(compilation, set_very_large_number){
+    char code[] = "int a = 0;"
+                  "a = 2147483647;";
+    std::map<std::string, int32_t> valMap = {
+            {"a", 2147483647}
+    };
+    test_with_regs(code, 10, valMap);
+}
+
+TEST(compilation, set_very_large_negative_number){
+    char code[] = "int a = 0;"
+                  "a = -2147483648;";
+    std::map<std::string, int32_t> valMap = {
+            {"a", -2147483648}
+    };
+    test_with_regs(code, 10, valMap);
+}
+
+TEST(compilation, sixteen_bit_numbers){
+    // pos
+    char code[] = "int a = 65536;"
+                  "int b = 65535;"
+                  "int c = 65537;";
+    std::map<std::string, int32_t> valMap = {
+            {"a", 65536},
+            {"b", 65535},
+            {"c", 65537}
+    };
+    test_with_regs(code, 10, valMap);
+
+    // neg
+    char code2[] = "int a = -65536;"
+                   "int b = -65535;"
+                   "int c = -65537;";
+    std::map<std::string, int32_t> valMap2 = {
+            {"a", -65536},
+            {"b", -65535},
+            {"c", -65537}
+
+    };
+    test_with_regs(code2, 15, valMap2);
+}
+
+TEST(compilation, large_rollover_numbers){
+    char code[] = "int a = 0;"
+                  "a = 2147483647 + 1;";
+    std::map<std::string, int32_t> valMap = {
+            {"a", -2147483648}
+    };
+    test_with_regs(code, 10, valMap);
+
+    char code2[] = "int a = 0;"
+                   "a = -2147483648 - 1;";
+    std::map<std::string, int32_t> valMap2 = {
+            {"a", 2147483647}
+    };
+    test_with_regs(code2, 10, valMap2);
+}
+
+TEST(compilation, float_num){
+    char code[] = "float a = 1.0;"
+                  "float b = 2.5;"
+                  "float c = a + b;";
+    int a_exp = 1<<16;
+    int b_exp = 0b00000000000000101000000000000000;
+    int c_exp = a_exp + b_exp;
+    std::map<std::string, int32_t> valMap = {
+            {"a", 1 << 16},
+            {"b", 0b00000000000000101000000000000000},
+            {"c", c_exp}
+    };
+    test_with_regs(code, 30, valMap);
+}
+
+TEST(compilation, assign_float_to_int){
+    char code[] = "int a = 0;"
+                  "float b = 2.5;"
+                  "a = b;";
+    int b_exp = 0b00000000000000101000000000000000;
+    std::map<std::string, int32_t> valMap = {
+            {"a", 2},
+            {"b", b_exp}
+    };
+    test_with_regs(code, 30, valMap);
+}
+
+TEST(compilation, assign_int_to_float){
+    char code[] = "float a = 2.5;"
+                  "int b = 4;"
+                  "float c = a + b;";
+    int a_exp = 0b00000000000000101000000000000000;
+    std::map<std::string, int32_t> valMap = {
+            {"a", a_exp},
+            {"b", 4},
+            {"c", a_exp + (4 << 16)}
+    };
+    test_with_regs(code, 30, valMap);
+}
+
+TEST(compilation, int_to_float_to_int){
+    char code[] = "int a = 4;"
+                  "float b = a;"
+                  "int c = b;";
+    int b_exp = 4 << 16;
+    std::map<std::string, int32_t> valMap = {
+            {"a", 4},
+            {"b", b_exp},
+            {"c", 4}
+    };
+    test_with_regs(code, 30, valMap);
+}
+
+

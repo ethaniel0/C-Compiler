@@ -118,7 +118,7 @@ int main(int argc, char** argv) {
         int num_cycles = runner.run(800);
         printf("Ran for %d cycles\n", num_cycles);
         for (const std::string& var : runVars){
-            uint8_t reg = tracker.getReg(var, -1, false);
+            uint8_t reg = tracker.getReg(var, false);
             int mem = tracker.get_mem_addr(var);
             if (mem <= 0) mem = -mem;
             else mem -= 1;

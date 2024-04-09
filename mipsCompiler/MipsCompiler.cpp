@@ -25,7 +25,7 @@ void compile_array_init(ArrayInitializationToken* token, int* mem, bool on_stack
         }
         else {
             std::string value = compile_op("", t, mipsBuilder, varTracker);
-            uint8_t reg = varTracker->getReg(value, 2);
+            uint8_t reg = varTracker->getReg(value);
             if (on_stack){
                 mipsBuilder->addInstruction(new InstrSw(reg, SP, *mem), "");
                 *mem -= 1;
@@ -47,7 +47,7 @@ std::string compile_value_def(Token* token, MipsBuilder* mipsBuilder, VariableTr
         // length is stored in $1 and the length recorded below
         int length = 1;
         for (Token* i : def->dimensions){
-            if (i->type == TYPE_VALUE && i->val_type == TokenValue::NUMBER){
+            if (i->type == TYPE_VALUE && i->val_type == TokenValue::NUMBER_INT){
                 length *= std::stoi(i->lexeme);
             }
             else {
@@ -68,7 +68,7 @@ std::string compile_value_def(Token* token, MipsBuilder* mipsBuilder, VariableTr
         }
 
         // get register, save mem location
-        uint8_t reg = varTracker->getReg(def->name, 0);
+        uint8_t reg = varTracker->getReg(def->name);
         if (on_stack){
             mipsBuilder->addInstruction(new InstrAddi(reg, SP, mem), "");
         }
@@ -76,18 +76,29 @@ std::string compile_value_def(Token* token, MipsBuilder* mipsBuilder, VariableTr
             mipsBuilder->addInstruction(new InstrAddi(reg, 0, mem), "");
         }
 
+        varTracker->set_var_type(def->name, def->valueType);
+        varTracker->set_var_type_refs(def->name, 1);
+
         return def->name;
     }
 
     std::string value = compile_op("", def->value, mipsBuilder, varTracker);
+
+
     if (def->value->type != TYPE_IDENTIFIER ){
         varTracker->renameVar(value, def->name);
     }
     else {
-        uint8_t reg = varTracker->getReg(def->name, 0);
-        uint8_t val_reg = varTracker->getReg(value, def->value->track);
+        uint8_t reg = varTracker->getReg(def->name);
+
+        varTracker->set_var_type(def->name, def->valueType);
+        varTracker->set_var_type_refs(def->name, def->refCount);
+
+        std::string val = force_type(def->name, value, varTracker, mipsBuilder);
+        uint8_t val_reg = varTracker->getReg(val);
         mipsBuilder->addInstruction(new InstrAdd(reg, 0, val_reg), "");
     }
+
 
     return def->name;
 }
@@ -101,7 +112,7 @@ void compile_jump_condition(const std::string& break_to, Token* condition, MipsB
     }
     else {
         std::string v = compile_op("", condition, mipsBuilder, varTracker);
-        uint8_t reg = varTracker->getReg(v, condition->track);
+        uint8_t reg = varTracker->getReg(v);
         mipsBuilder->addInstruction(new InstrBne(reg, 0, break_to), "");
     }
 }
@@ -158,7 +169,7 @@ void continue_return(Token* token, BreakScope* breakScope, MipsBuilder* mipsBuil
     auto* ret = (ReturnToken*) token;
     if (ret->value != nullptr){
         std::string value = compile_op("", ret->value, mipsBuilder, varTracker);
-        uint8_t reg = varTracker->getReg(value, -1);
+        uint8_t reg = varTracker->getReg(value);
         mipsBuilder->addInstruction(new InstrAdd(2, 0, reg), "");
     }
     mipsBuilder->addInstruction(new InstrJ(breakScope->returnLabel), "");
@@ -299,7 +310,7 @@ void compile_function(BreakScope* breakScope, Token* token, MipsBuilder* mipsBui
     if (function->parameters.size() > 4){
         // load arguments into stack pointer
         for (int i = 4; i < function->parameters.size(); i++){
-            uint8_t reg = varTracker->getReg(function->parameters[i]->name, -1);
+            uint8_t reg = varTracker->getReg(function->parameters[i]->name);
             mipsBuilder->addInstruction(new InstrLw(reg, SP, i - 4), "");
         }
     }

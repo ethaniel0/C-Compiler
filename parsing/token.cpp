@@ -52,27 +52,28 @@ std::map<TokenValue, std::string> tokenValueMap = {
         {TokenValue::MOD,           "MOD"},
         {TokenValue::MOD_EQ,        "MOD_EQ"},
         {TokenValue::NOT,           "NOT"},
-        {TokenValue::NOT_EQ,        "NOT_EQ"},
-        {TokenValue::GT,            "GT"},
-        {TokenValue::GTE,           "GTE"},
-        {TokenValue::LT,            "LT"},
-        {TokenValue::LTE,           "LTE"},
-        {TokenValue::EQ,            "EQ"},
-        {TokenValue::EQ_EQ,         "EQ_EQ"},
+        {TokenValue::NOT_EQ,     "NOT_EQ"},
+        {TokenValue::GT,         "GT"},
+        {TokenValue::GTE,        "GTE"},
+        {TokenValue::LT,         "LT"},
+        {TokenValue::LTE,        "LTE"},
+        {TokenValue::EQ,         "EQ"},
+        {TokenValue::EQ_EQ,      "EQ_EQ"},
 
-        {TokenValue::IDENTIFIER,    "IDENTIFIER"},
-        {TokenValue::STRING,        "STRING"},
-        {TokenValue::NUMBER,        "NUMBER"},
-        {TokenValue::CHARACTER,     "CHARACTER"},
-        {TokenValue::NIL,           "NIL"},
-        {TokenValue::FUNCTION,      "FUNCTION"},
+        {TokenValue::IDENTIFIER, "IDENTIFIER"},
+        {TokenValue::STRING,     "STRING"},
+        {TokenValue::NUMBER_INT, "NUMBER_INT"},
+        {TokenValue::NUMBER_FLOAT, "NUMBER_FLOAT"},
+        {TokenValue::CHARACTER,  "CHARACTER"},
+        {TokenValue::NIL,        "NIL"},
+        {TokenValue::FUNCTION,   "FUNCTION"},
 
-        {TokenValue::INT,           "INT"},
-        {TokenValue::FLOAT,         "FLOAT"},
-        {TokenValue::CHAR,          "CHAR"},
-        {TokenValue::DOUBLE,        "DOUBLE"},
-        {TokenValue::LONG,          "LONG"},
-        {TokenValue::SHORT,         "SHORT"},
+        {TokenValue::INT,        "INT"},
+        {TokenValue::FLOAT,      "FLOAT"},
+        {TokenValue::CHAR,       "CHAR"},
+        {TokenValue::DOUBLE,     "DOUBLE"},
+        {TokenValue::LONG,       "LONG"},
+        {TokenValue::SHORT,      "SHORT"},
         {TokenValue::VOID,          "VOID"},
 
         {TokenValue::IF,            "IF"},
@@ -162,7 +163,10 @@ std::vector<Token> tokenize(std::string source) {
             case '-':
                 // if negative number skip to negative
                 if (current < source.size() - 1 && isdigit(source.at(current+1)) && !(
-                        prev_token->val_type == IDENTIFIER || prev_token->val_type == NUMBER || prev_token->val_type == RIGHT_PAREN
+                        prev_token->val_type == IDENTIFIER ||
+                        prev_token->val_type == NUMBER_INT ||
+                        prev_token->val_type == NUMBER_FLOAT ||
+                        prev_token->val_type == RIGHT_PAREN
                         )) {
                     is_neg = true;
                     break;
@@ -335,7 +339,8 @@ std::vector<Token> tokenize(std::string source) {
                         is_neg = false;
                     }
                     lexeme += source.substr(start, current - start);
-                    tokens.emplace_back(TokenType::TYPE_VALUE, TokenValue::NUMBER, lexeme, line);
+                    TokenValue val_type = lexeme.find('.') != std::string::npos ? TokenValue::NUMBER_FLOAT : TokenValue::NUMBER_INT;
+                    tokens.emplace_back(TokenType::TYPE_VALUE, val_type, lexeme, line);
                     current--;
                 }
                 else if (isalpha(c) || c == '_' || c == '#') {

@@ -59,10 +59,10 @@ struct VarLocation{
     uint8_t reg_save;
 
     uint32_t save_location;
-    int track_number;
     bool must_load;
 
     TokenValue type;
+    int typeRefs;
 
     VarLocation(){
         reg = 0;
@@ -73,9 +73,9 @@ struct VarLocation{
         in_stack = false;
         stack_save = 0;
         in_stack_save = false;
-        track_number = 0;
         must_load = false;
         type = TokenValue::NONE;
+        typeRefs = 0;
     }
 };
 
@@ -87,6 +87,9 @@ private:
     std::map<std::string, VarLocation*> var_to_location;
     std::map<std::string, VarLocation*> var_to_stack_save;
     std::map<std::string, VarLocation*> var_to_reg_save;
+    std::map<std::string, std::string> aliases;
+
+    std::map<std::string, FunctionToken*> inline_functions;
 
     int mem_offset = 0;
     int stack_offset = 0;
@@ -104,6 +107,7 @@ private:
     void store_reg_in_stack(uint8_t reg, const std::string& label);
     void store_var_in_stack(const std::string& var, const std::string& label);
     void store_var_in_memory(const std::string& var);
+    std::string get_varname(const std::string& var, int scope=-1);
 public:
     explicit VariableTracker(MipsBuilder* builder){
         mem_offset = 0;
@@ -118,15 +122,17 @@ public:
     int get_mem_offset();
 
     /// Gets the register of a variable, loads it from memory into a register, or adds if it doesn't exist
-    uint8_t getReg(const std::string& var, int track_number, bool modify=true);
+    uint8_t getReg(const std::string &var, bool modify = true);
 
     /// Allocates a constant amount amount of memory in the stack or heap for an array at compile time
     int set_array(const std::string& var, int size);
 
     /// Sets the type of a variable
     void set_var_type(const std::string& var, TokenValue type);
+    void set_var_type_refs(const std::string& var, int refs);
     /// Gets the type of a variable
     TokenValue get_var_type(const std::string& var);
+    int get_var_type_refs(const std::string& var);
 
     /// Returns if a variable exists
     bool var_exists(const std::string& var);
@@ -135,14 +141,13 @@ public:
     /// the variable already existing in that register will be moved.
     void reserve_reg(uint8_t reg);
 
-    /// Sets the tracking number of a variable
-    void set_track_number(const std::string& var, int track_number);
-
     /// Adds a variable to a register. If not specified, the register will be the first one available.
     uint8_t add_variable(const std::string& var, int reg=-1);
 
     /// Removes a variable from the tracker
     void removeVar(const std::string& var);
+    /// Removes a temporary variable from the tracker (will not remove a non-temporary value)
+    void removeIfTemp(const std::string& var);
 
     /// Renames a variable
     void renameVar(const std::string& oldVar, const std::string& newVar);
@@ -162,13 +167,18 @@ public:
     /// Decreases the scope. Clears register frequency tracking. Loads any changed global variable values back into memory.
     void decScope();
 
-    void clean_temp_variables();
-
     /// Gets a variable's address in memory.
     /// Returns a negative or zero address for global variables, positive address for stack.
     /// If positive (on stack), subtract 1
     int get_mem_addr(const std::string& var);
-    void remove_from_regs(const std::string& var);
+
+    void set_alias(const std::string& alias, const std::string& var);
+    void remove_alias(const std::string& alias);
+
+    void add_inline_function(const std::string& name, FunctionToken* function);
+    FunctionToken* get_inline_function(const std::string& name);
+
+
 };
 
 #endif //I2C2_VARIABLETRACKER_H

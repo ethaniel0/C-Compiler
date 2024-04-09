@@ -50,7 +50,7 @@ enum TokenValue {
     RSHIFT, RSHIFT_EQ,
 
     // literals and values
-    IDENTIFIER, STRING, NUMBER, CHARACTER, NIL, FUNCTION, ARRAY,
+    IDENTIFIER, STRING, NUMBER_INT, NUMBER_FLOAT, CHARACTER, NIL, FUNCTION, ARRAY,
 
     // data types
     INT, FLOAT, CHAR, DOUBLE, LONG, SHORT, VOID, STRUCT,
@@ -147,10 +147,13 @@ public:
     Token* function;
     std::vector<Token*> arguments;
     TokenValue returnType;
+    int returnTypeRefs;
 
     FunctionCallToken(Token* function, std::vector<Token*> arguments, std::string lexeme, int line) : Token(TokenType::TYPE_OPERATOR, TokenValue::FUNCTION, std::move(lexeme), line) {
         this->function = function;
         this->arguments = std::move(arguments);
+        this->returnType = TokenValue::NONE;
+        this->returnTypeRefs = 0;
     }
 };
 

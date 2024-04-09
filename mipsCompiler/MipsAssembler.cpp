@@ -22,7 +22,7 @@ int getInput(const std::string& inp, VariableTracker* tracker){
     if (inp.at(0) == '('){
         std::string sub = inp.substr(1, inp.size() - 2);
         if (!tracker->var_exists(sub)) throw std::runtime_error("variable " + sub + " does not exist");
-        return tracker->getReg(sub, -1);
+        return tracker->getReg(sub, false);
     }
 }
 

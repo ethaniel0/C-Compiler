@@ -215,6 +215,7 @@ Token* parseExpression(TokenIterator& iter, Scope* scope){
                 std::vector<Token*> args = parseFunctionArgs(iter, scope);
                 auto* func = new FunctionCallToken(tok, args, tok->lexeme, tok->line);
                 func->returnType = returnType;
+                func->returnTypeRefs = ((FunctionToken*) f)->refCount;
                 tok = func;
             }
             else if (tok->val_type == TokenValue::IDENTIFIER && next != nullptr && next->val_type == TokenValue::LEFT_BRACKET){

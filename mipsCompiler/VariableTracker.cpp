@@ -171,7 +171,7 @@ uint8_t VariableTracker::getFreeReg() {
 }
 
 uint8_t VariableTracker::add_variable(const std::string &var, int reg) {
-    std::string name = std::to_string(scope_level) + "-" + var;
+    std::string name = get_varname(var);
     if (var_to_location.find(name) != var_to_location.end()){
         throw std::runtime_error("Variable already in use");
     }
@@ -197,7 +197,7 @@ uint8_t VariableTracker::add_variable(const std::string &var, int reg) {
 std::string VariableTracker::add_temp_variable() {
     uint8_t new_reg = getFreeReg();
     std::string var = "<temp" + std::to_string(tempVarCounter++) + ">";
-    std::string name = std::to_string(scope_level) + "-" + var;
+    std::string name = get_varname(var);
     auto loc = new VarLocation();
     loc->reg = new_reg;
     loc->in_reg = true;
@@ -206,20 +206,16 @@ std::string VariableTracker::add_temp_variable() {
     return var;
 }
 
-uint8_t VariableTracker::getReg(const std::string &var, int track_number, bool modify) {
+uint8_t VariableTracker::getReg(const std::string &var, bool modify) {
     int scope = scope_level;
 
     while (scope >= 0) {
-        std::string name = std::to_string(scope) + "-" + var;
+        std::string name = get_varname(var, scope);
         if (var_to_location.find(name) == var_to_location.end()){
             scope--;
             continue;
         }
         VarLocation* loc = var_to_location[name];
-
-        if (track_number != -1) {
-            var_to_location[name]->track_number = track_number;
-        }
 
         bool must_load = modify && loc->must_load;
 
@@ -265,7 +261,7 @@ uint8_t VariableTracker::getReg(const std::string &var, int track_number, bool m
 }
 
 int VariableTracker::set_array(const std::string &var, int size) {
-    std::string name = std::to_string(scope_level) + "-" + var;
+    std::string name = get_varname(var);
     if (var_to_location.find(name) != var_to_location.end()) {
         throw std::runtime_error("Variable " + var + " already in use");
     }
@@ -287,7 +283,7 @@ int VariableTracker::set_array(const std::string &var, int size) {
 bool VariableTracker::var_exists(const std::string &var) {
     int scope = scope_level;
     while (scope >= 0) {
-        std::string name = std::to_string(scope) + "-" + var;
+        std::string name = get_varname(var, scope);
         if (var_to_location.find(name) != var_to_location.end()) return true;
         scope--;
     }
@@ -306,18 +302,8 @@ void VariableTracker::reserve_reg(uint8_t reg) {
     }
 }
 
-void VariableTracker::set_track_number(const std::string &var, int track_number) {
-    std::string name = std::to_string(scope_level) + "-" + var;
-    if (var_to_location.find(name) != var_to_location.end()) {
-        var_to_location[name]->track_number = track_number;
-    }
-    else {
-        throw std::runtime_error("Variable " + var + " not found");
-    }
-}
-
 void VariableTracker::removeVar(const std::string &var) {
-    std::string name = std::to_string(scope_level) + "-" + var;
+    std::string name = get_varname(var);
     regFreq.remove(name);
     if (var_to_location.find(name) == var_to_location.end()) {
         return;
@@ -330,14 +316,22 @@ void VariableTracker::removeVar(const std::string &var) {
     regFreq.remove(name);
     delete loc;
 
+    remove_alias(var);
+
     if (var_to_stack_save.find(name) != var_to_stack_save.end()) {
         var_to_stack_save.erase(name);
     }
 }
 
+void VariableTracker::removeIfTemp(const std::string &var) {
+    if (var.find("<temp") != std::string::npos) {
+        removeVar(var);
+    }
+}
+
 void VariableTracker::renameVar(const std::string& oldVar, const std::string& newVar){
-    std::string name_old = std::to_string(scope_level) + "-" + oldVar;
-    std::string name_new = std::to_string(scope_level) + "-" + newVar;
+    std::string name_old = get_varname(oldVar);
+    std::string name_new = get_varname(newVar);
 
     if (var_to_location.find(name_old) == var_to_location.end()){
         throw std::runtime_error("Variable " + oldVar + " not found");
@@ -472,27 +466,9 @@ void VariableTracker::decScope() {
     }
 }
 
-void VariableTracker::clean_temp_variables() {
-    std::vector<std::string> to_delete;
-    std::string look_for = std::to_string(scope_level) + "-<temp";
-    for (auto& [name, loc] : var_to_location) {
-        if (name.find(look_for) != std::string::npos) {
-            to_delete.push_back(name);
-        }
-    }
-    for (auto& name : to_delete) {
-        auto* loc = var_to_location[name];
-        if (loc->in_reg) {
-            free_regs.push_back(loc->reg);
-        }
-        var_to_location.erase(name);
-        delete loc;
-    }
-}
-
 int VariableTracker::get_mem_addr(const std::string &var) {
-    std::string name = std::to_string(scope_level) + "-" + var;
-    std::string name_global = "0-" + var;
+    std::string name = get_varname(var);
+    std::string name_global = get_varname(var, 0);
 
     if (var_to_location.find(name) == var_to_location.end() &&
         var_to_location.find(name_global) == var_to_location.end()) {
@@ -527,7 +503,7 @@ void VariableTracker::set_var_type(const std::string &var, TokenValue type) {
     int scope = scope_level;
 
     while (scope >= 0) {
-        std::string name = std::to_string(scope) + "-" + var;
+        std::string name = get_varname(var, scope);
         if (var_to_location.find(name) == var_to_location.end()) {
             scope--;
             continue;
@@ -539,18 +515,82 @@ void VariableTracker::set_var_type(const std::string &var, TokenValue type) {
         scope--;
     }
 }
+void VariableTracker::set_var_type_refs(const std::string &var, int refs) {
+    // find var first
+    int scope = scope_level;
+
+    while (scope >= 0) {
+        std::string name = get_varname(var, scope);
+        if (var_to_location.find(name) == var_to_location.end()) {
+            scope--;
+            continue;
+        }
+
+        auto* loc = var_to_location[name];
+        loc->typeRefs = refs;
+
+        scope--;
+    }
+}
 
 TokenValue VariableTracker::get_var_type(const std::string &var) {
     // find var first
     int scope = scope_level;
 
     while (scope >= 0) {
-        std::string name = std::to_string(scope) + "-" + var;
+        std::string name = get_varname(var, scope);
         if (var_to_location.find(name) == var_to_location.end()) {
+            scope--;
             continue;
         }
         auto* loc = var_to_location[name];
         return loc->type;
     }
     return TokenValue::VOID;
+}
+int VariableTracker::get_var_type_refs(const std::string &var) {
+    // find var first
+    int scope = scope_level;
+
+    while (scope >= 0) {
+        std::string name = get_varname(var, scope);
+        if (var_to_location.find(name) == var_to_location.end()) {
+            scope--;
+            continue;
+        }
+        auto* loc = var_to_location[name];
+        return loc->typeRefs;
+    }
+    return 0;
+
+}
+
+void VariableTracker::set_alias(const std::string& alias, const std::string& var) {
+    std::string alias_name = std::to_string(scope_level) + "-" + alias;
+    std::string var_name = std::to_string(scope_level) + "-" + var;
+    aliases[alias_name] = var_name;
+}
+void VariableTracker::remove_alias(const std::string &alias) {
+    std::string alias_name = std::to_string(scope_level) + "-" + alias;
+    aliases.erase(alias_name);
+}
+
+std::string VariableTracker::get_varname(const std::string &var, int scope) {
+    if (scope == -1) scope = scope_level;
+    std::string var_name = std::to_string(scope) + "-" + var;
+    if (aliases.find(var_name) != aliases.end()) {
+        return aliases[var_name];
+    }
+    return var_name;
+}
+
+void VariableTracker::add_inline_function(const std::string &name, FunctionToken *function) {
+    inline_functions[name] = function;
+}
+
+FunctionToken *VariableTracker::get_inline_function(const std::string &name) {
+    if (inline_functions.find(name) == inline_functions.end()) {
+        throw std::runtime_error("Function " + name + " not found");
+    }
+    return inline_functions[name];
 }
