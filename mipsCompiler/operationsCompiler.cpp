@@ -63,19 +63,19 @@ MatchTypeResults match_num_types(std::string& var1, std::string& var2, VariableT
 
         if (type1 == TokenValue::FLOAT){
             return {
-                .left = var1,
-                .right = intermediate
+                var1,
+                intermediate
             };
         }
         return {
-            .left = intermediate,
-            .right = var2
+            intermediate,
+            var2
         };
 
     }
     return {
-        .left = var1,
-        .right = var2
+        var1,
+        var2
     };
 }
 
