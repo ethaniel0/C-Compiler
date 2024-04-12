@@ -870,6 +870,7 @@ std::string compile_inline_function_call(FunctionCallToken* call, MipsBuilder* m
     }
 
     for (const std::string& arg : args){
+        varTracker->removeVar(arg);
         varTracker->remove_alias(arg);
     }
 

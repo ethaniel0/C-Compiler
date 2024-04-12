@@ -74,12 +74,19 @@ int main(){
     digitalWrite(3,LOW);
 
     int step = 0;
+    int clk = 0;
 
     while(1) {
         stepMotor(step);
-        for(int i = 0; i < 120000; i += 1){
-        }
+//        for (int i = 0; i < 1000; i += 1){}
         step += 1;
-        __asm__("print (step)");
+//
+//        int c = 0;
+//        __asm__("addi (c) $3 0");
+//        if (c - clk > 50){
+//            stepMotor(step);
+//            __asm__("print (step)");
+//            step += 1;
+//        }
     }
 }

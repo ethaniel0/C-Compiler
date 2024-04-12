@@ -394,8 +394,7 @@ bool sort_ast(std::vector<Token*>* tokens, Scope* scope){
     if (has_main){
         // insert a main() call before function calls
         std::string call_main = "main();";
-        std::vector<Token> main_tokens = tokenize(call_main);
-        std::vector<Token*> main_ptrs = toTokenRefs(main_tokens);
+        std::vector<Token*> main_ptrs = tokenize(call_main);
         TokenIterator main_iter(main_ptrs);
         std::vector<Token*> main_ast = parse(main_iter, scope);
         tokens->push_back(main_ast[0]);

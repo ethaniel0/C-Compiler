@@ -119,6 +119,7 @@ private:
     void store_var_in_stack(const std::string& var, const std::string& label);
     void store_var_in_memory(const std::string& var);
     std::string get_varname(const std::string& var, int scope=-1);
+    void remove_free_reg(int reg);
 
 public:
     explicit VariableTracker(MipsBuilder* builder){

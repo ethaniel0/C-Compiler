@@ -12,6 +12,6 @@
 
 #include "tokenTypes.h"
 
-std::vector<Token> tokenize(std::string source);
+std::vector<Token*> tokenize(std::string source);
 
 #endif //I2C_TOKENIZE_H

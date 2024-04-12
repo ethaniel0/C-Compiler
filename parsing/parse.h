@@ -15,7 +15,6 @@
 
 int precedence(TokenValue op);
 
-std::vector<Token*> toTokenRefs(std::vector<Token>& tokens);
 
 struct TokenIterator {
 private:

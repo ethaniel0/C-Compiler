@@ -5,15 +5,6 @@
 #include "parse.h"
 #include <map>
 
-std::vector<Token*> toTokenRefs(std::vector<Token>& tokens){
-    std::vector<Token*> tokenPtrs;
-    tokenPtrs.reserve(tokens.size());
-    for (Token& token : tokens) {
-        tokenPtrs.push_back(&token);
-    }
-    return tokenPtrs;
-}
-
 TokenValue precedenceArr[10][12] = {
     {EQ, ADD_EQ, MINUS_EQ, MULT_EQ, DIV_EQ,
      MOD_EQ, BIN_AND_EQ, BIN_OR_EQ, XOR_EQ, LSHIFT_EQ, RSHIFT_EQ, NONE},
@@ -99,10 +90,12 @@ std::vector<Token*> parseFunctionArgs (TokenIterator& iter, Scope* scope){
     while (iter.hasNext()){
         Token* t = iter.peek();
         if (t->val_type == LEFT_PAREN){
+            expr.push_back(t);
             TokenIterator cond = getCondition(iter);
             while(cond.hasNext()){
                 expr.push_back(cond.next());
             }
+            expr.push_back(new Token(TokenType::TYPE_BRACKET, TokenValue::RIGHT_PAREN, ")", t->line));
             continue;
         }
         t = iter.next();

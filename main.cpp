@@ -43,7 +43,7 @@ int main(int argc, char** argv) {
         std::cerr << "No output file" << std::endl;
         return 1;
     }
-    std::vector<Token> tokens;
+    std::vector<Token*> tokens;
     for (const std::string& file : files) {
         std::ifstream in(file);
         if (!in.is_open()) {
@@ -55,12 +55,11 @@ int main(int argc, char** argv) {
         while (std::getline(in, line)) {
             file_text += line + "\n";
         }
-        std::vector<Token> newTokens = tokenize(file_text);
+        std::vector<Token*> newTokens = tokenize(file_text);
         tokens.insert(tokens.end(), newTokens.begin(), newTokens.end());
     }
 
-    std::vector<Token*> token_ptrs = toTokenRefs(tokens);
-    TokenIterator tokens_iter(token_ptrs);
+    TokenIterator tokens_iter(tokens);
     Scope scope(nullptr);
     std::vector<Token*> ast = parse(tokens_iter, &scope);
 
@@ -71,6 +70,10 @@ int main(int argc, char** argv) {
     VariableTracker tracker(&builder);
     BreakScope breakScope;
     compile_instructions(&breakScope, ast, &builder, &tracker);
+
+    for (Token* token : ast) {
+        delete token;
+    }
 
     int mem_loc = tracker.get_mem_offset();
     builder.prependInstruction(new InstrAddi(28, 0, mem_loc));
@@ -101,7 +104,7 @@ int main(int argc, char** argv) {
             out.write(bits.to_string().c_str(), 32);
             out << std::endl;
         }
-        if (mem.size() < 4095){
+        if (mem.size() < 4096){
             for (int i = 0; i < 4095 - mem.size(); i++) {
                 out << "00000000000000000000000000000000" << std::endl;
             }
@@ -115,7 +118,7 @@ int main(int argc, char** argv) {
     if (run){
         std::vector<Instruction*> instructions = builder.getInstructions();
         MipsRunner runner(2048, instructions.data(), instructions.size());
-        int num_cycles = runner.run(800);
+        int num_cycles = runner.run(2000);
         printf("Ran for %d cycles\n", num_cycles);
         for (const std::string& var : runVars){
             uint8_t reg = tracker.getReg(var, false);

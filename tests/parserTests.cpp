@@ -9,7 +9,7 @@ void run_parser_tests(){
 }
 
 TEST(parser, toRefs){
-    std::vector<Token> tokens = tokenize
+    std::vector<Token*> tokens = tokenize
             ("int a = 4;\n"
              "int main(){\n"
              "    int x = 0;\n"
@@ -19,17 +19,14 @@ TEST(parser, toRefs){
              "\n"
              "    return 0;\n"
              "}\n");
-    std::vector<Token*> refs = toTokenRefs(tokens);
-    ASSERT_EQ(refs.size(), tokens.size(), %d)
-    for (int i = 0; i < refs.size(); i++){
-        ASSERT_EQ(refs[i]->type, tokens[i].type, %d)
-        ASSERT_EQ(refs[i]->lexeme.c_str(), tokens[i].lexeme.c_str(), %s)
+    for (int i = 0; i < tokens.size(); i++){
+        ASSERT_EQ(tokens[i]->type, tokens[i]->type, %d)
+        ASSERT_EQ(tokens[i]->lexeme.c_str(), tokens[i]->lexeme.c_str(), %s)
     }
 }
 
 TEST(parser, simple_expression){
-    std::vector<Token> token_list = tokenize("1 + 2");
-    std::vector<Token*> tokens = toTokenRefs(token_list);
+    std::vector<Token*> tokens = tokenize("1 + 2");
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token*> parsed = parse(iterator, &scope);
@@ -51,8 +48,7 @@ TEST(parser, simple_expression){
 }
 
 TEST(parser, complicated_expression){
-    std::vector<Token> token_list = tokenize("1 + 4 * 2 / 9 & 5 - 8");
-    std::vector<Token*> tokens = toTokenRefs(token_list);
+    std::vector<Token*> tokens = tokenize("1 + 4 * 2 / 9 & 5 - 8");
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token*> parsed = parse(iterator, &scope);
@@ -99,8 +95,7 @@ TEST(parser, complicated_expression){
 }
 
 TEST(parser, invalid_expression_op_missing_right){
-    std::vector<Token> token_list = tokenize("1 + 4 * 2 / 9 & 5 -");
-    std::vector<Token*> tokens = toTokenRefs(token_list);
+    std::vector<Token*> tokens = tokenize("1 + 4 * 2 / 9 & 5 -");
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     try {
@@ -111,8 +106,7 @@ TEST(parser, invalid_expression_op_missing_right){
 }
 
 TEST(parser, invalid_expression_op_missing_right_2){
-    std::vector<Token> token_list = tokenize("1 + 4 * 2 - / 9 & 5 -");
-    std::vector<Token*> tokens = toTokenRefs(token_list);
+    std::vector<Token*> tokens = tokenize("1 + 4 * 2 - / 9 & 5 -");
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     try {
@@ -123,8 +117,7 @@ TEST(parser, invalid_expression_op_missing_right_2){
 }
 
 TEST(parser, invalid_expression_op_missing_right_3){
-    std::vector<Token> token_list = tokenize("1 + 4 * * 2 - / 9 & 5 -");
-    std::vector<Token*> tokens = toTokenRefs(token_list);
+    std::vector<Token*> tokens = tokenize("1 + 4 * * 2 - / 9 & 5 -");
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     try {
@@ -136,8 +129,7 @@ TEST(parser, invalid_expression_op_missing_right_3){
 }
 
 TEST(parser, invalid_expression_op_missing_left){
-    std::vector<Token> token_list = tokenize("+ 4 * 2 / 9 & 5 -");
-    std::vector<Token*> tokens = toTokenRefs(token_list);
+    std::vector<Token*> tokens = tokenize("+ 4 * 2 / 9 & 5 -");
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     try {
@@ -149,8 +141,7 @@ TEST(parser, invalid_expression_op_missing_left){
 }
 
 TEST(parser, expression_with_parentheses){
-std::vector<Token> token_list = tokenize("(1 + 4) * 2 / (9 & 5) - 8");
-    std::vector<Token*> tokens = toTokenRefs(token_list);
+    std::vector<Token*> tokens = tokenize("(1 + 4) * 2 / (9 & 5) - 8");
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token*> parsed = parse(iterator, &scope);
@@ -199,8 +190,7 @@ std::vector<Token> token_list = tokenize("(1 + 4) * 2 / (9 & 5) - 8");
 }
 
 TEST(parser, nested_parentheses){
-    std::vector<Token> token_list = tokenize("((1 + 4) * 2) / 2");
-    std::vector<Token*> tokens = toTokenRefs(token_list);
+    std::vector<Token*> tokens = tokenize("((1 + 4) * 2) / 2");
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token*> parsed = parse(iterator, &scope);
@@ -235,8 +225,7 @@ TEST(parser, nested_parentheses){
 }
 
 TEST(parser, simple_assignment){
-    std::vector<Token> token_list = tokenize("int a = 4;");
-    std::vector<Token*> tokens = toTokenRefs(token_list);
+    std::vector<Token*> tokens = tokenize("int a = 4;");
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token*> parsed = parse(iterator, &scope);
@@ -258,9 +247,8 @@ TEST(parser, simple_assignment){
 }
 
 TEST(parser, assignment_with_ref){
-    std::vector<Token> token_list = tokenize("int a = 4;\n"
+    std::vector<Token*> tokens = tokenize("int a = 4;\n"
                                              "int* b = &a;");
-    std::vector<Token*> tokens = toTokenRefs(token_list);
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token*> parsed = parse(iterator, &scope);
@@ -283,8 +271,7 @@ TEST(parser, assignment_with_ref){
 }
 
 TEST(parser, int_with_two_refs){
-    std::vector<Token> token_list = tokenize("int** a = 0;");
-    std::vector<Token*> tokens = toTokenRefs(token_list);
+    std::vector<Token*> tokens = tokenize("int** a = 0;");
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token*> parsed = parse(iterator, &scope);
@@ -300,8 +287,7 @@ TEST(parser, int_with_two_refs){
 }
 
 TEST(parser, invalid_assignment_no_expr){
-    std::vector<Token> token_list = tokenize("int a =");
-    std::vector<Token*> tokens = toTokenRefs(token_list);
+    std::vector<Token*> tokens = tokenize("int a =");
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     try {
@@ -313,8 +299,7 @@ TEST(parser, invalid_assignment_no_expr){
 }
 
 TEST(parser, invalid_assignment_bad_ops){
-    std::vector<Token> token_list = tokenize("int a = = 4;");
-    std::vector<Token*> tokens = toTokenRefs(token_list);
+    std::vector<Token*> tokens = tokenize("int a = = 4;");
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     try {
@@ -326,8 +311,7 @@ TEST(parser, invalid_assignment_bad_ops){
 }
 
 TEST(parser, nested_parentheces){
-    std::vector<Token> token_list = tokenize("int a = ((4 + 2) * 3) / 2;");
-    std::vector<Token*> tokens = toTokenRefs(token_list);
+    std::vector<Token*> tokens = tokenize("int a = ((4 + 2) * 3) / 2;");
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token*> parsed = parse(iterator, &scope);
@@ -368,10 +352,9 @@ TEST(parser, nested_parentheces){
 }
 
 TEST(parser, if_statement){
-    std::vector<Token> token_list = tokenize("int x = 1; if(x < 5){\n"
+    std::vector<Token*> tokens = tokenize("int x = 1; if(x < 5){\n"
                                              "    x = 5;\n"
                                              "}\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -400,12 +383,12 @@ TEST(parser, if_statement){
 }
 
 TEST(parser, if_else_statement){
-    std::vector<Token> token_list = tokenize("int x = 1; if(x < 5){\n"
+    std::vector<Token*> tokens = tokenize("int x = 1; if(x < 5){\n"
                                              "    x = 5;\n"
                                              "} else {\n"
                                              "    x = 6;\n"
                                              "}\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -442,12 +425,12 @@ TEST(parser, if_else_statement){
 }
 
 TEST(parser, if_else_if_statement){
-    std::vector<Token> token_list = tokenize("int x = 1; if(x < 5){\n"
+    std::vector<Token*> tokens = tokenize("int x = 1; if(x < 5){\n"
                                              "    x = 5;\n"
                                              "} else if(x < 6){\n"
                                              "    x = 6;\n"
                                              "}\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -486,14 +469,14 @@ TEST(parser, if_else_if_statement){
 }
 
 TEST(parser, if_else_if_else_statement){
-    std::vector<Token> token_list = tokenize("int x = 1; if(x < 5){\n"
+    std::vector<Token*> tokens = tokenize("int x = 1; if(x < 5){\n"
                                              "    x = 5;\n"
                                              "} else if(x < 6){\n"
                                              "    x = 6;\n"
                                              "} else {\n"
                                              "    x = 7;\n"
                                              "}\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -540,10 +523,10 @@ TEST(parser, if_else_if_else_statement){
 }
 
 TEST(parser, if_with_nested_parentheces){
-    std::vector<Token> token_list = tokenize("int x = 1; if((x < 5) && (x > 0)){\n"
+    std::vector<Token*> tokens = tokenize("int x = 1; if((x < 5) && (x > 0)){\n"
                                              "    x = 5;\n"
                                              "}\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -583,9 +566,9 @@ TEST(parser, if_with_nested_parentheces){
 }
 
 TEST(parser, function_definition_with_empty_function){
-    std::vector<Token> token_list = tokenize("int main(){\n"
+    std::vector<Token*> tokens = tokenize("int main(){\n"
                                              "}\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -600,9 +583,9 @@ TEST(parser, function_definition_with_empty_function){
 }
 
 TEST(parser, function_definition_with_pointer_empty){
-    std::vector<Token> token_list = tokenize("int* main(){\n"
+    std::vector<Token*> tokens = tokenize("int* main(){\n"
                                              "}\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -617,9 +600,9 @@ TEST(parser, function_definition_with_pointer_empty){
 }
 
 TEST(parser, function_with_argument_that_has_two_refs){
-    std::vector<Token> token_list = tokenize("int* main(int** x){\n"
+    std::vector<Token*> tokens = tokenize("int* main(int** x){\n"
                                              "}\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -637,10 +620,10 @@ TEST(parser, function_with_argument_that_has_two_refs){
 }
 
 TEST(parser, function_definition_with_body){
-    std::vector<Token> token_list = tokenize("int main(){\n"
+    std::vector<Token*> tokens = tokenize("int main(){\n"
                                              "    int x = 5;\n"
                                              "}\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -662,11 +645,11 @@ TEST(parser, function_definition_with_body){
 }
 
 TEST(parser, function_call_with_no_params){
-    std::vector<Token> token_list = tokenize("int main(){\n"
+    std::vector<Token*> tokens = tokenize("int main(){\n"
                                              "    return 0;\n"
                                              "}\n"
                                              "int z = main();\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -684,11 +667,11 @@ TEST(parser, function_call_with_no_params){
 }
 
 TEST(parser, function_call){
-    std::vector<Token> token_list = tokenize("int add(int x, int y){\n"
+    std::vector<Token*> tokens = tokenize("int add(int x, int y){\n"
                                              "    return x + y;\n"
                                              "}\n"
                                              "int z = add(2, 3);\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -710,14 +693,14 @@ TEST(parser, function_call){
 }
 
 TEST(parser, exprs_in_braces){
-    std::vector<Token> token_list = tokenize("{"
+    std::vector<Token*> tokens = tokenize("{"
                                              "int x = 0;"
                                              "int y = 4;"
                                              "{"
                                              "    int z = 5;"
                                              "}"
                                              "}");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -742,11 +725,11 @@ TEST(parser, exprs_in_braces){
 }
 
 TEST(parser, function_call_with_nested_parentheces){
-    std::vector<Token> token_list = tokenize("int add(int x, int y){\n"
+    std::vector<Token*> tokens = tokenize("int add(int x, int y){\n"
                                              "    return x + y;\n"
                                              "}\n"
                                              "int z = add((2 + 3), 3);\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -771,9 +754,43 @@ TEST(parser, function_call_with_nested_parentheces){
     EXPECT_EQ_SPECIAL(call->arguments[1]->lexeme, "3", %s, .c_str(),)
 }
 
+TEST(parser, function_call_with_parentheces_with_operation){
+    std::vector<Token*> tokens = tokenize("int add(int x, int y){\n"
+                                             "    return x + y;\n"
+                                             "}\n"
+                                             "int z = add((2 << 3) & 5, 3);\n");
+
+    TokenIterator iterator(tokens);
+    Scope scope = Scope(nullptr);
+    std::vector<Token *> parsed = parse(iterator, &scope);
+    ASSERT_EQ((int) parsed.size(), 2, %d)
+    auto* expr = (DefinitionToken*)parsed[1];
+    EXPECT_EQ(expr->valueType, INT, %d)
+    EXPECT_EQ(expr->refCount, 0, %d)
+    EXPECT_EQ_SPECIAL(expr->name, "z", %s, .c_str(),)
+    auto* call = (FunctionCallToken*)expr->value;
+    ASSERT_EQ(call->type, TokenType::TYPE_OPERATOR, %d)
+    ASSERT_EQ(call->val_type, TokenValue::FUNCTION, %d)
+    EXPECT_EQ(call->function->val_type, TokenValue::IDENTIFIER, %d)
+    EXPECT_EQ_SPECIAL(call->function->lexeme, "add", %s, .c_str(),)
+    ASSERT_EQ(call->arguments.size(), 2, %d)
+    auto* andOp = (BinaryOpToken*)call->arguments[0];
+    ASSERT_EQ(andOp->val_type, BIN_AND, %d)
+    auto* shift = (BinaryOpToken*)andOp->left;
+    ASSERT_EQ(shift->val_type, LSHIFT, %d)
+    EXPECT_EQ(shift->left->val_type, NUMBER_INT, %d)
+    EXPECT_EQ_SPECIAL(shift->left->lexeme, "2", %s, .c_str(),)
+    EXPECT_EQ(shift->right->val_type, NUMBER_INT, %d)
+    EXPECT_EQ_SPECIAL(shift->right->lexeme, "3", %s, .c_str(),)
+    EXPECT_EQ(andOp->right->val_type, NUMBER_INT, %d)
+    EXPECT_EQ_SPECIAL(andOp->right->lexeme, "5", %s, .c_str(),)
+    EXPECT_EQ(call->arguments[1]->val_type, NUMBER_INT, %d)
+    EXPECT_EQ_SPECIAL(call->arguments[1]->lexeme, "3", %s, .c_str(),)
+}
+
 TEST(parser, function_header){
-    std::vector<Token> token_list = tokenize("int thing(int x, int y);");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    std::vector<Token*> tokens = tokenize("int thing(int x, int y);");
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -796,11 +813,11 @@ TEST(parser, function_header){
 }
 
 TEST(parser, function_impl_following_function_header){
-    std::vector<Token> token_list = tokenize("int thing(int x, int y);\n"
+    std::vector<Token*> tokens = tokenize("int thing(int x, int y);\n"
                                              "int thing(int x, int y){\n"
                                              "    return x + y;\n"
                                              "}\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -837,10 +854,10 @@ TEST(parser, function_impl_following_function_header){
 }
 
 TEST(parser, function_with_return){
-    std::vector<Token> token_list = tokenize("int main(){\n"
+    std::vector<Token*> tokens = tokenize("int main(){\n"
                                              "    return 5;\n"
                                              "}\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -860,9 +877,9 @@ TEST(parser, function_with_return){
 }
 
 TEST(parser, for_loop_with_empty_body){
-    std::vector<Token> token_list = tokenize("for(int i = 0; i <= 5; i += 1){\n"
+    std::vector<Token*> tokens = tokenize("for(int i = 0; i <= 5; i += 1){\n"
                                              "}\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -895,10 +912,10 @@ TEST(parser, for_loop_with_empty_body){
 }
 
 TEST(parser, for_loop_with_simple_body){
-    std::vector<Token> token_list = tokenize("for(int i = 0; i <= 5; i += 1){\n"
+    std::vector<Token*> tokens = tokenize("for(int i = 0; i <= 5; i += 1){\n"
                                              "    int x = 5;\n"
                                              "}\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -938,9 +955,9 @@ TEST(parser, for_loop_with_simple_body){
 }
 
 TEST(parser, infinite_for_loop){
-    std::vector<Token> token_list = tokenize("for(;;){\n"
+    std::vector<Token*> tokens = tokenize("for(;;){\n"
                                              "}\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -955,10 +972,10 @@ TEST(parser, infinite_for_loop){
 }
 
 TEST(parser, for_loop_with_continue){
-    std::vector<Token> token_list = tokenize("for(int i = 0; i <= 5; i += 1){\n"
+    std::vector<Token*> tokens = tokenize("for(int i = 0; i <= 5; i += 1){\n"
                                              "    continue;\n"
                                              "}\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -972,10 +989,10 @@ TEST(parser, for_loop_with_continue){
 }
 
 TEST(parser, for_loop_with_break){
-    std::vector<Token> token_list = tokenize("for(int i = 0; i <= 5; i += 1){\n"
+    std::vector<Token*> tokens = tokenize("for(int i = 0; i <= 5; i += 1){\n"
                                              "    break;\n"
                                              "}\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -989,9 +1006,9 @@ TEST(parser, for_loop_with_break){
 }
 
 TEST(parser, while_loop_with_empty_body){
-    std::vector<Token> token_list = tokenize("while(1){\n"
+    std::vector<Token*> tokens = tokenize("while(1){\n"
                                              "}\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -1004,10 +1021,10 @@ TEST(parser, while_loop_with_empty_body){
 }
 
 TEST(parser, while_loop_with_continue){
-    std::vector<Token> token_list = tokenize("while(1){\n"
+    std::vector<Token*> tokens = tokenize("while(1){\n"
                                              "    continue;\n"
                                              "}\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -1021,10 +1038,10 @@ TEST(parser, while_loop_with_continue){
 }
 
 TEST(parser, while_loop_with_break){
-    std::vector<Token> token_list = tokenize("while(1){\n"
+    std::vector<Token*> tokens = tokenize("while(1){\n"
                                              "    break;\n"
                                              "}\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -1038,9 +1055,9 @@ TEST(parser, while_loop_with_break){
 }
 
 TEST(parser, while_loop_with_expr_in_header_empty_body){
-    std::vector<Token> token_list = tokenize("int x = 0; while(x < 5){\n"
+    std::vector<Token*> tokens = tokenize("int x = 0; while(x < 5){\n"
                                              "}\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -1057,10 +1074,10 @@ TEST(parser, while_loop_with_expr_in_header_empty_body){
 }
 
 TEST(parser, while_loop_with_body){
-    std::vector<Token> token_list = tokenize("while(1){\n"
+    std::vector<Token*> tokens = tokenize("while(1){\n"
                                              "    int x = 5;\n"
                                              "}");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -1080,8 +1097,8 @@ TEST(parser, while_loop_with_body){
 }
 
 TEST(parser, return_outside_of_function){
-    std::vector<Token> token_list = tokenize("return 5;\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    std::vector<Token*> tokens = tokenize("return 5;\n");
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     try {
@@ -1092,8 +1109,8 @@ TEST(parser, return_outside_of_function){
 }
 
 TEST(parser, use_var_more_than_once){
-    std::vector<Token> token_list = tokenize("int x = 5; int y = x + x; int z = x;\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    std::vector<Token*> tokens = tokenize("int x = 5; int y = x + x; int z = x;\n");
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -1127,10 +1144,10 @@ TEST(parser, use_var_more_than_once){
 }
 
 TEST(parser, parse_assembly){
-    std::vector<Token> token_list = tokenize("__asm__(\n"
+    std::vector<Token*> tokens = tokenize("__asm__(\n"
                                              " \"mov eax, 5\"\n"
                                              ")\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);
@@ -1141,10 +1158,10 @@ TEST(parser, parse_assembly){
 }
 
 TEST(parser, detect_error_on_equations_with_assembly){
-    std::vector<Token> token_list = tokenize("int x = 5 + __asm__(\n"
+    std::vector<Token*> tokens = tokenize("int x = 5 + __asm__(\n"
                                              "    \"mov eax, 5\"\n"
                                              ")\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     try {
@@ -1154,8 +1171,8 @@ TEST(parser, detect_error_on_equations_with_assembly){
 }
 
 TEST(parser, define_array){
-    std::vector<Token> token_list = tokenize("int x[5];\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    std::vector<Token*> tokens = tokenize("int x[5];\n");
+    
 
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
@@ -1174,8 +1191,8 @@ TEST(parser, define_array){
 }
 
 TEST(parser, define_array_with_assignment){
-    std::vector<Token> token_list = tokenize("int x[5] = {1, 2, 3, 4, 5};\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    std::vector<Token*> tokens = tokenize("int x[5] = {1, 2, 3, 4, 5};\n");
+    
 
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
@@ -1206,8 +1223,8 @@ TEST(parser, define_array_with_assignment){
 }
 
 TEST(parser, initialize_2d_array){
-    std::vector<Token> token_list = tokenize("int x[2][3] = {{1, 2, 3}, {4, 5, 6}};\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    std::vector<Token*> tokens = tokenize("int x[2][3] = {{1, 2, 3}, {4, 5, 6}};\n");
+    
 
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
@@ -1248,9 +1265,9 @@ TEST(parser, initialize_2d_array){
 }
 
 TEST(parser, array_access){
-    std::vector<Token> token_list = tokenize("int x[5];\n"
+    std::vector<Token*> tokens = tokenize("int x[5];\n"
                                              "int y = x[2];\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
 
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
@@ -1280,11 +1297,11 @@ TEST(parser, array_access){
 }
 
 TEST(parser, inline_function){
-    std::vector<Token> token_list = tokenize("inline int add(int x, int y){\n"
+    std::vector<Token*> tokens = tokenize("inline int add(int x, int y){\n"
                                              "    return x + y;\n"
                                              "}\n"
                                              "int z = add(2, 3);\n");
-    std::vector<Token *> tokens = toTokenRefs(token_list);
+    
     TokenIterator iterator(tokens);
     Scope scope = Scope(nullptr);
     std::vector<Token *> parsed = parse(iterator, &scope);

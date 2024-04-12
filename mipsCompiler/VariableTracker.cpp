@@ -90,7 +90,17 @@ VariableTracker::~VariableTracker() {
     var_to_location.clear();
     var_to_stack_save.clear();
     var_to_reg_save.clear();
-    free_regs.clear();
+    int s = free_regs.size();
+    if (!free_regs.empty()) {
+        free_regs.clear();
+    }
+//    free_regs.clear();
+}
+
+void VariableTracker::remove_free_reg(int reg) {
+    if (std::find(free_regs.begin(), free_regs.end(), reg) != free_regs.end()) {
+        free_regs.erase(std::remove(free_regs.begin(), free_regs.end(), reg), free_regs.end());
+    }
 }
 
 int VariableTracker::get_mem_offset() {
@@ -102,7 +112,13 @@ void VariableTracker::store_var_in_memory(const std::string& var) {
         throw std::runtime_error("Variable not found");
     }
     VarLocation* loc = var_to_location[var];
-    if (loc->in_global_mem) throw std::runtime_error("Variable already in memory");
+    if (loc->in_global_mem){
+        if (loc->in_reg){
+            mipsBuilder->addInstruction(new InstrSw(loc->reg, 0, (int16_t) loc->global_mem), "");
+        }
+        free_regs.push_back(loc->reg);
+        return;
+    }
 
     loc->global_mem = mem_offset;
     loc->in_global_mem = true;
@@ -160,11 +176,21 @@ void VariableTracker::reduce_stack_offset(int offset) {
 
 uint8_t VariableTracker::getFreeReg() {
     if(free_regs.empty()){
-        std::string least_used = regFreq.getLeastUsed();
-        if (var_to_location.find(least_used) == var_to_location.end()) {
-            throw std::runtime_error("Compilation error) Variable " + least_used + " not found");
+        std::string possible_var;
+        for (auto& [name, loc] : var_to_location) {
+            if (loc->in_reg) {
+                possible_var = name;
+                break;
+            }
         }
-        store_var_in_memory(least_used);
+        if (possible_var.empty()) {
+            throw std::runtime_error("No registers can be freed");
+        }
+
+        if (var_to_location.find(possible_var) == var_to_location.end()) {
+            throw std::runtime_error("Compilation error) Variable " + possible_var + " not found");
+        }
+        store_var_in_memory(possible_var);
     }
     uint8_t reg = free_regs.back();
     free_regs.pop_back();
@@ -340,6 +366,9 @@ void VariableTracker::renameVar(const std::string& oldVar, const std::string& ne
         throw std::runtime_error("Variable " + oldVar + " not found");
     }
 
+    regFreq.remove(name_old);
+    regFreq.use(name_new);
+
     VarLocation* loc = var_to_location[name_old];
     var_to_location.erase(name_old);
     var_to_location[name_new] = loc;
@@ -353,6 +382,7 @@ void VariableTracker::clear_regs() {
         }
     }
     free_regs.clear();
+    regFreq.clear();
     for(uint8_t i = 27; i >= 8; i--){
         free_regs.push_back(i);
     }
@@ -407,7 +437,7 @@ void VariableTracker::restore_regs_from_stack() {
         reserve_reg(loc->reg);
         loc->in_reg = true;
         loc->in_stack_save = false;
-        free_regs.erase(std::remove(free_regs.begin(), free_regs.end(), loc->reg), free_regs.end());
+        remove_free_reg(loc->reg);
         uint32_t mem = stack_offset - loc->save_location;
         mipsBuilder->addInstruction(new InstrLw(loc->reg, 29, (int16_t) mem), "");
         regFreq.use(name);
@@ -435,7 +465,6 @@ void VariableTracker::incScope(bool is_inline){
 }
 
 void VariableTracker::decScope(bool is_inline) {
-    scope_level--;
     regFreq.clear();
 
     std::vector<std::string> names_to_delete;
@@ -444,7 +473,10 @@ void VariableTracker::decScope(bool is_inline) {
         if (loc->in_reg && name[0] == '0' && !is_inline) {
             mipsBuilder->addInstruction(new InstrSw(loc->reg, 0, (int16_t) loc->global_mem), "");
         }
-        else if (name[0] == '1'){
+        else if (name[0] == '1' && scope_level == 1){
+            names_to_delete.push_back(name);
+        }
+        else if (name[0] == '2' && scope_level == 2){
             names_to_delete.push_back(name);
         }
     }
@@ -454,7 +486,10 @@ void VariableTracker::decScope(bool is_inline) {
         delete loc;
     }
 
-    clear_regs();
+    scope_level--;
+
+    if (!is_inline)
+        clear_regs();
 
     if (!is_inline && stack_offset > 0) {
         mipsBuilder->addInstruction(new InstrAddi(29, 29, (int16_t) stack_offset), "");
@@ -462,12 +497,13 @@ void VariableTracker::decScope(bool is_inline) {
     }
 
     // restore reg spots
-    for (auto& [name, loc] : var_to_reg_save) {
-        loc->in_reg = true;
-        loc->reg = loc->reg_save;
-        free_regs.erase(std::remove(free_regs.begin(), free_regs.end(), loc->reg), free_regs.end());
-        if (!is_inline)
+    if (!is_inline) {
+        for (auto &[name, loc]: var_to_reg_save) {
+            loc->in_reg = true;
+            loc->reg = loc->reg_save;
+            remove_free_reg(loc->reg);
             regFreq.use(name);
+        }
     }
 }
 

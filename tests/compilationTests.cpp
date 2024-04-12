@@ -13,8 +13,7 @@ void run_compilation_tests(){
 TEST(compilation, one_add){
     char code[] = "1 + 2";
 
-    std::vector<Token> tokens = tokenize(code);
-    std::vector<Token*> token_ptrs = toTokenRefs(tokens);
+    std::vector<Token*> token_ptrs = tokenize(code);
     TokenIterator tokens_iter(token_ptrs);
     Scope scope(nullptr);
     std::vector<Token*> ast = parse(tokens_iter, &scope);
@@ -42,8 +41,7 @@ TEST(compilation, one_add){
 TEST(compilation, one_def){
     char code[] = "int a = 1;";
 
-    std::vector<Token> tokens = tokenize(code);
-    std::vector<Token*> token_ptrs = toTokenRefs(tokens);
+    std::vector<Token*> token_ptrs =  tokenize(code);
     TokenIterator tokens_iter(token_ptrs);
     Scope scope(nullptr);
     std::vector<Token*> ast = parse(tokens_iter, &scope);
@@ -70,8 +68,7 @@ TEST(compilation, one_def){
 TEST(compilation, def_with_expression){
     char code[] = "int a = 1 + 2 * 8;";
 
-    std::vector<Token> tokens = tokenize(code);
-    std::vector<Token*> token_ptrs = toTokenRefs(tokens);
+    std::vector<Token*> token_ptrs = tokenize(code);
     TokenIterator tokens_iter(token_ptrs);
     Scope scope(nullptr);
     std::vector<Token*> ast = parse(tokens_iter, &scope);
@@ -110,8 +107,7 @@ TEST(compilation, two_dependent_defs){
     char code[] = "int a = 1; "
                   "int b = a + 2;";
 
-    std::vector<Token> tokens = tokenize(code);
-    std::vector<Token*> token_ptrs = toTokenRefs(tokens);
+    std::vector<Token*> token_ptrs =  tokenize(code);
     TokenIterator tokens_iter(token_ptrs);
     Scope scope(nullptr);
     std::vector<Token*> ast = parse(tokens_iter, &scope);
@@ -140,9 +136,7 @@ TEST(compilation, two_dependent_defs){
 }
 
 int test_with_regs(std::string source, int cycles, std::map<std::string, int32_t> expectedVarMap, bool print_instructions=false, bool use_mem=false){
-    std::vector<Token> tokens = tokenize(std::move(source));
-
-    std::vector<Token*> token_ptrs = toTokenRefs(tokens);
+    std::vector<Token*> token_ptrs =  tokenize(std::move(source));
     TokenIterator tokens_iter(token_ptrs);
     Scope scope(nullptr);
     std::vector<Token*> ast = parse(tokens_iter, &scope);

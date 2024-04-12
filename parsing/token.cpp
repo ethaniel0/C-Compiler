@@ -95,13 +95,13 @@ std::string tokenValueAsString(TokenValue value) {
 }
 
 
-std::vector<Token> tokenize(std::string source) {
-    std::vector<Token> tokens;
+std::vector<Token*> tokenize(std::string source) {
+    std::vector<Token*> tokens;
     int start;
     int current = 0;
     int line = 1;
 
-    std::map<std::string, std::vector<Token>> defines;
+    std::map<std::string, std::vector<Token*>> defines;
 
     Token none_token = Token(TokenType::TYPE_NONE, TokenValue::NONE, "", line);
 
@@ -111,7 +111,7 @@ std::vector<Token> tokenize(std::string source) {
         start = current;
         char c = source.at(current);
         Token* prev_token;
-        if (!tokens.empty()) prev_token = &tokens[tokens.size() - 1];
+        if (!tokens.empty()) prev_token = tokens[tokens.size() - 1];
         else prev_token = &none_token;
 
         switch (c) {
@@ -125,39 +125,39 @@ std::vector<Token> tokenize(std::string source) {
                 break;
             // BRACKET
             case '(':
-                tokens.emplace_back(TokenType::TYPE_BRACKET, TokenValue::LEFT_PAREN, "(", line);
+                tokens.push_back(new Token(TokenType::TYPE_BRACKET, TokenValue::LEFT_PAREN, "(", line));
                 break;
             case ')':
-                tokens.emplace_back(TokenType::TYPE_BRACKET, TokenValue::RIGHT_PAREN, ")", line);
+                tokens.push_back(new Token(TokenType::TYPE_BRACKET, TokenValue::RIGHT_PAREN, ")", line));
                 break;
             case '{':
-                tokens.emplace_back(TokenType::TYPE_BRACKET, TokenValue::LEFT_BRACE, "{", line);
+                tokens.push_back(new Token(TokenType::TYPE_BRACKET, TokenValue::LEFT_BRACE, "{", line));
                 break;
             case '}':
-                tokens.emplace_back(TokenType::TYPE_BRACKET, TokenValue::RIGHT_BRACE, "}", line);
+                tokens.push_back(new Token(TokenType::TYPE_BRACKET, TokenValue::RIGHT_BRACE, "}", line));
                 break;
             case '[':
-                tokens.emplace_back(TokenType::TYPE_BRACKET, TokenValue::LEFT_BRACKET, "[", line);
+                tokens.push_back(new Token(TokenType::TYPE_BRACKET, TokenValue::LEFT_BRACKET, "[", line));
                 break;
             case ']':
-                tokens.emplace_back(TokenType::TYPE_BRACKET, TokenValue::RIGHT_BRACKET, "]", line);
+                tokens.push_back(new Token(TokenType::TYPE_BRACKET, TokenValue::RIGHT_BRACKET, "]", line));
                 break;
 
             // SEPARATOR
             case ',':
-                tokens.emplace_back(TokenType::TYPE_SEPARATOR, TokenValue::COMMA, ",", line);
+                tokens.push_back(new Token(TokenType::TYPE_SEPARATOR, TokenValue::COMMA, ",", line));
                 break;
             case ';':
-                tokens.emplace_back(TokenType::TYPE_SEPARATOR, TokenValue::SEMICOLON, ";", line);
+                tokens.push_back(new Token(TokenType::TYPE_SEPARATOR, TokenValue::SEMICOLON, ";", line));
                 break;
 
             // OPERATOR
             case '+':
                 if (current < source.size() - 1 && source.at(current + 1) == '=') {
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::ADD_EQ, "+=", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::ADD_EQ, "+=", line));
                     current++;
                 } else {
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::ADD, "+", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::ADD, "+", line));
                 }
                 break;
             case '-':
@@ -172,27 +172,27 @@ std::vector<Token> tokenize(std::string source) {
                     break;
                 }
                 if (current < source.size() - 1 && source.at(current + 1) == '=') {
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::MINUS_EQ, "-=", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::MINUS_EQ, "-=", line));
                     current++;
                 } else if (prev_token->type != TokenType::TYPE_IDENTIFIER &&
                            prev_token->type != TokenType::TYPE_VALUE &&
                            prev_token->type != TokenType::TYPE_BRACKET) {
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::NEG, "-", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::NEG, "-", line));
                 } else {
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::MINUS, "-", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::MINUS, "-", line));
                 }
                 break;
 
             case '*':
                 if (current < source.size() - 1 && source.at(current + 1) == '=') {
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::MULT_EQ, "*=", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::MULT_EQ, "*=", line));
                     current++;
                 }
                 else if (prev_token->type != TokenType::TYPE_IDENTIFIER && prev_token->type != TokenType::TYPE_VALUE && prev_token->val_type != TokenValue::RIGHT_PAREN){
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::DEREF, "*", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::DEREF, "*", line));
                 }
                 else {
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::MULT, "*", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::MULT, "*", line));
                 }
                 break;
             case '/':
@@ -204,107 +204,107 @@ std::vector<Token> tokenize(std::string source) {
                     break;
                 }
                 if (current < source.size() - 1 && source.at(current + 1) == '=') {
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::DIV_EQ, "/=", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::DIV_EQ, "/=", line));
                     current++;
                 } else {
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::DIV, "/", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::DIV, "/", line));
                 }
                 break;
             case '&':
                 if (current < source.size() - 1 && source.at(current + 1) == '=') {
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::BIN_AND_EQ, "&=", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::BIN_AND_EQ, "&=", line));
                     current++;
                 }
                 else if (current < source.size() - 1 && source.at(current + 1) == '&') {
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::AND, "&&", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::AND, "&&", line));
                     current++;
                 }
                 else if (prev_token->type != TokenType::TYPE_IDENTIFIER && prev_token->type != TokenType::TYPE_VALUE && prev_token->val_type != TokenValue::RIGHT_PAREN){
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::REF, "&", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::REF, "&", line));
                 }
                 else {
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::BIN_AND, "&", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::BIN_AND, "&", line));
                 }
                 break;
             case '|':
                 if (current < source.size() - 1 && source.at(current + 1) == '=') {
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::BIN_OR_EQ, "|=", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::BIN_OR_EQ, "|=", line));
                     current++;
                 }
                 else if (source.at(current + 1) == '|') {
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::OR, "||", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::OR, "||", line));
                     current++;
                 }
                 else {
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::BIN_OR, "|", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::BIN_OR, "|", line));
                 }
                 break;
             case '^':
                 if (current < source.size() - 1 && source.at(current + 1) == '=') {
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::XOR_EQ, "^=", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::XOR_EQ, "^=", line));
                     current++;
                 } else {
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::XOR, "^", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::XOR, "^", line));
                 }
                 break;
             case '%':
                 if (current < source.size() - 1 && source.at(current + 1) == '=') {
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::MOD_EQ, "%=", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::MOD_EQ, "%=", line));
                     current++;
                 } else {
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::MOD, "%", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::MOD, "%", line));
                 }
                 break;
             case '!':
                 if (current < source.size() - 1 && source.at(current + 1) == '=') {
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::NOT_EQ, "!=", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::NOT_EQ, "!=", line));
                     current++;
                 } else {
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::NOT, "!", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::NOT, "!", line));
                 }
                 break;
             case '>':
                 if (current < source.size() - 1 && source.at(current + 1) == '=') {
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::GTE, ">=", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::GTE, ">=", line));
                     current++;
                 }
                 else if (current < source.size() - 1 && source.at(current + 1) == '>') {
                     if (current < source.size() - 2 && source.at(current + 2) == '=') {
-                        tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::RSHIFT_EQ, ">>=", line);
+                        tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::RSHIFT_EQ, ">>=", line));
                         current++;
                     } else {
-                        tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::RSHIFT, ">>", line);
+                        tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::RSHIFT, ">>", line));
                     }
                     current++;
                 }
                 else {
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::GT, ">", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::GT, ">", line));
                 }
                 break;
             case '<':
                 if (current < source.size() - 1 && source.at(current + 1) == '=') {
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::LTE, "<=", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::LTE, "<=", line));
                     current++;
                 }
                 else if (current < source.size() - 1 && source.at(current + 1) == '<') {
                     if (current < source.size() - 2 && source.at(current + 2) == '=') {
-                        tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::LSHIFT_EQ, "<<=", line);
+                        tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::LSHIFT_EQ, "<<=", line));
                         current++;
                     } else {
-                        tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::LSHIFT, "<<", line);
+                        tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::LSHIFT, "<<", line));
                     }
                     current++;
                 }
                 else {
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::LT, "<", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::LT, "<", line));
                 }
                 break;
             case '=':
                 if (current < source.size() - 1 && source.at(current + 1) == '=') {
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::EQ_EQ, "==", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::EQ_EQ, "==", line));
                     current++;
                 } else {
-                    tokens.emplace_back(TokenType::TYPE_OPERATOR, TokenValue::EQ, "=", line);
+                    tokens.push_back(new Token(TokenType::TYPE_OPERATOR, TokenValue::EQ, "=", line));
                 }
                 break;
             default:
@@ -316,11 +316,11 @@ std::vector<Token> tokenize(std::string source) {
                           ) {
                         current++;
                     }
-                    tokens.emplace_back(TokenType::TYPE_VALUE, TokenValue::STRING, source.substr(start + 1, current - start - 1), line);
+                    tokens.push_back(new Token(TokenType::TYPE_VALUE, TokenValue::STRING, source.substr(start + 1, current - start - 1), line));
                 }
                 else if (c == '\'') {
                     current++;
-                    tokens.emplace_back(TokenType::TYPE_VALUE, TokenValue::CHARACTER, source.substr(current, 1), line);
+                    tokens.push_back(new Token(TokenType::TYPE_VALUE, TokenValue::CHARACTER, source.substr(current, 1), line));
                     current++;
                 }
                 else if (isdigit(c)) {
@@ -340,7 +340,7 @@ std::vector<Token> tokenize(std::string source) {
                     }
                     lexeme += source.substr(start, current - start);
                     TokenValue val_type = lexeme.find('.') != std::string::npos ? TokenValue::NUMBER_FLOAT : TokenValue::NUMBER_INT;
-                    tokens.emplace_back(TokenType::TYPE_VALUE, val_type, lexeme, line);
+                    tokens.push_back(new Token(TokenType::TYPE_VALUE, val_type, lexeme, line));
                     current--;
                 }
                 else if (isalpha(c) || c == '_' || c == '#') {
@@ -352,26 +352,27 @@ std::vector<Token> tokenize(std::string source) {
                     current--;
 
                     // data types
-                    if (word == "int") tokens.emplace_back(TokenType::TYPE_TYPE, TokenValue::INT, word, line);
-                    else if (word == "float") tokens.emplace_back(TokenType::TYPE_TYPE, TokenValue::FLOAT, word, line);
-                    else if (word == "char") tokens.emplace_back(TokenType::TYPE_TYPE, TokenValue::CHAR, word, line);
-                    else if (word == "double") tokens.emplace_back(TokenType::TYPE_TYPE, TokenValue::DOUBLE, word, line);
-                    else if (word == "long") tokens.emplace_back(TokenType::TYPE_TYPE, TokenValue::LONG, word, line);
-                    else if (word == "short") tokens.emplace_back(TokenType::TYPE_TYPE, TokenValue::SHORT, word, line);
-                    else if (word == "void") tokens.emplace_back(TokenType::TYPE_TYPE, TokenValue::VOID, word, line);
+                    if (word == "int") tokens.push_back(new Token(TokenType::TYPE_TYPE, TokenValue::INT, word, line));
+                    else if (word == "float") tokens.push_back(new Token(TokenType::TYPE_TYPE, TokenValue::FLOAT, word, line));
+                    else if (word == "char") tokens.push_back(new Token(TokenType::TYPE_TYPE, TokenValue::CHAR, word, line));
+                    else if (word == "double") tokens.push_back(new Token(TokenType::TYPE_TYPE, TokenValue::DOUBLE, word, line));
+                    else if (word == "long") tokens.push_back(new Token(TokenType::TYPE_TYPE, TokenValue::LONG, word, line));
+                    else if (word == "short") tokens.push_back(new Token(TokenType::TYPE_TYPE, TokenValue::SHORT, word, line));
+                    else if (word == "void") tokens.push_back(new Token(TokenType::TYPE_TYPE, TokenValue::VOID, word, line));
+                    else if (word == "struct") tokens.push_back(new Token(TokenType::TYPE_TYPE, TokenValue::STRUCT, word, line));
 
                     // keywords
-                    else if (word == "if") tokens.emplace_back(TokenType::TYPE_KEYWORD, TokenValue::IF, word, line);
-                    else if (word == "else") tokens.emplace_back(TokenType::TYPE_KEYWORD, TokenValue::ELSE, word, line);
-                    else if (word == "for") tokens.emplace_back(TokenType::TYPE_KEYWORD, TokenValue::FOR, word, line);
-                    else if (word == "while") tokens.emplace_back(TokenType::TYPE_KEYWORD, TokenValue::WHILE, word, line);
-                    else if (word == "break") tokens.emplace_back(TokenType::TYPE_KEYWORD, TokenValue::BREAK, word, line);
-                    else if (word == "continue") tokens.emplace_back(TokenType::TYPE_KEYWORD, TokenValue::CONTINUE, word, line);
-                    else if (word == "NULL") tokens.emplace_back(TokenType::TYPE_VALUE, TokenValue::NIL, word, line);
-                    else if (word == "return") tokens.emplace_back(TokenType::TYPE_KEYWORD, TokenValue::RETURN, word, line);
-                    else if (word == "inline") tokens.emplace_back(TokenType::TYPE_KEYWORD, TokenValue::INLINE, word, line);
+                    else if (word == "if") tokens.push_back(new Token(TokenType::TYPE_KEYWORD, TokenValue::IF, word, line));
+                    else if (word == "else") tokens.push_back(new Token(TokenType::TYPE_KEYWORD, TokenValue::ELSE, word, line));
+                    else if (word == "for") tokens.push_back(new Token(TokenType::TYPE_KEYWORD, TokenValue::FOR, word, line));
+                    else if (word == "while") tokens.push_back(new Token(TokenType::TYPE_KEYWORD, TokenValue::WHILE, word, line));
+                    else if (word == "break") tokens.push_back(new Token(TokenType::TYPE_KEYWORD, TokenValue::BREAK, word, line));
+                    else if (word == "continue") tokens.push_back(new Token(TokenType::TYPE_KEYWORD, TokenValue::CONTINUE, word, line));
+                    else if (word == "NULL") tokens.push_back(new Token(TokenType::TYPE_VALUE, TokenValue::NIL, word, line));
+                    else if (word == "return") tokens.push_back(new Token(TokenType::TYPE_KEYWORD, TokenValue::RETURN, word, line));
+                    else if (word == "inline") tokens.push_back(new Token(TokenType::TYPE_KEYWORD, TokenValue::INLINE, word, line));
 
-                    else if (word == "__asm__") tokens.emplace_back(TokenType::TYPE_KEYWORD, TokenValue::ASM, word, line);
+                    else if (word == "__asm__") tokens.push_back(new Token(TokenType::TYPE_KEYWORD, TokenValue::ASM, word, line));
 
                     else if (word == "#define"){
                         std::string define_key;
@@ -399,7 +400,7 @@ std::vector<Token> tokenize(std::string source) {
                         tokens.insert(tokens.end(), defines[word].begin(), defines[word].end());
                     }
                     else {
-                        tokens.emplace_back(TokenType::TYPE_IDENTIFIER, TokenValue::IDENTIFIER, word, line);
+                        tokens.push_back(new Token(TokenType::TYPE_IDENTIFIER, TokenValue::IDENTIFIER, word, line));
                     }
                 }
                 else {
