@@ -275,11 +275,11 @@ RTypeVals comp_bin_op_eq(Token* token, MipsBuilder* mipsBuilder, VariableTracker
     if (match_types) resultType = get_result_type(left, right, varTracker);
 
     return {
-            .rd = reg_a,
-            .rs = reg_a,
-            .rt = reg_b,
-            .resultTag = left,
-            .resultType = resultType
+            reg_a,
+            reg_a,
+            reg_b,
+            left,
+            resultType
     };
 }
 
