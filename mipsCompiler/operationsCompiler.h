@@ -5,6 +5,10 @@
 #ifndef I2C2_OPERATIONSCOMPILER_H
 #define I2C2_OPERATIONSCOMPILER_H
 
+#include <vector>
+#include <stdexcept>
+#include <string>
+
 #include "../parsing/parse.h"
 #include "../mips/MipsInstructions.h"
 #include "MipsBuilder.h"

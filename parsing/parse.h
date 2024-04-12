@@ -7,6 +7,8 @@
 
 #include <map>
 #include <utility>
+#include <vector>
+#include <stdexcept>
 
 #include "tokenize.h"
 #include "tokenTypes.h"

@@ -280,6 +280,11 @@ void compile_function(BreakScope* breakScope, Token* token, MipsBuilder* mipsBui
     // $31 is the return address
     auto* function = (FunctionToken*) token;
 
+    if (function->is_inline){
+        varTracker->add_inline_function(function->name, function);
+        return;
+    }
+
     if (function->body == nullptr) return;
 
     // skip over compile function definition so it's only run when called
@@ -368,9 +373,17 @@ bool sort_ast(std::vector<Token*>* tokens, Scope* scope){
     bool has_main = false;
     for (int i = 0; i < tokens->size(); i++){
         if ((*tokens)[i]->type == TokenType::TYPE_KEYWORD && (*tokens)[i]->val_type == TokenValue::FUNCTION){
-            if (((FunctionToken*) (*tokens)[i])->name == "main"){
+            auto* f = (FunctionToken*) (*tokens)[i];
+
+            if (f->is_inline){
+                continue;
+            }
+
+            if (f->name == "main"){
                 has_main = true;
             }
+
+
             functions.push_back((*tokens)[i]);
             // remove token
             tokens->erase(tokens->begin() + i);

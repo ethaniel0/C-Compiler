@@ -9,6 +9,8 @@
 #include <cstdint>
 #include <string>
 #include <map>
+#include <vector>
+#include <stdexcept>
 
 class RegisterFile{
 private:

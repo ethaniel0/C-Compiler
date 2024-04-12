@@ -7,6 +7,8 @@
 
 #include <utility>
 #include <bitset>
+#include <stdexcept>
+#include <string>
 
 #include "MipsRunner.h"
 

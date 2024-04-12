@@ -142,20 +142,6 @@ public:
     }
 };
 
-class FunctionCallToken : public Token {
-public:
-    Token* function;
-    std::vector<Token*> arguments;
-    TokenValue returnType;
-    int returnTypeRefs;
-
-    FunctionCallToken(Token* function, std::vector<Token*> arguments, std::string lexeme, int line) : Token(TokenType::TYPE_OPERATOR, TokenValue::FUNCTION, std::move(lexeme), line) {
-        this->function = function;
-        this->arguments = std::move(arguments);
-        this->returnType = TokenValue::NONE;
-        this->returnTypeRefs = 0;
-    }
-};
 
 class ArrayInitializationToken : public Token {
 public:
@@ -200,6 +186,24 @@ public:
         this->body = nullptr;
         this->returnType = valueType;
         this->refCount = 0;
+    }
+};
+
+class FunctionCallToken : public Token {
+public:
+    Token* function;
+    std::vector<Token*> arguments;
+    std::vector<DefinitionToken*> arg_names;
+    TokenValue returnType;
+    int returnTypeRefs;
+    bool is_inline;
+
+    FunctionCallToken(Token* function, std::vector<Token*> arguments, std::string lexeme, int line) : Token(TokenType::TYPE_OPERATOR, TokenValue::FUNCTION, std::move(lexeme), line) {
+        this->function = function;
+        this->arguments = std::move(arguments);
+        this->returnType = TokenValue::NONE;
+        this->returnTypeRefs = 0;
+        this->is_inline = false;
     }
 };
 

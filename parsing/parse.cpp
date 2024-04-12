@@ -211,11 +211,14 @@ Token* parseExpression(TokenIterator& iter, Scope* scope){
             if (tok->val_type == TokenValue::IDENTIFIER && next != nullptr && next->val_type == TokenValue::LEFT_PAREN){
                 Token* f = scope->find(tok->lexeme, tok);
                 if (f->type != TokenType::TYPE_KEYWORD || f->val_type != FUNCTION) throw std::runtime_error(tok->lexeme + " is not a function");
+                auto* orig_func = (FunctionToken*) f;
                 TokenValue returnType = ((FunctionToken*) f)->returnType;
                 std::vector<Token*> args = parseFunctionArgs(iter, scope);
                 auto* func = new FunctionCallToken(tok, args, tok->lexeme, tok->line);
                 func->returnType = returnType;
-                func->returnTypeRefs = ((FunctionToken*) f)->refCount;
+                func->returnTypeRefs = orig_func->refCount;
+                func->is_inline = orig_func->is_inline;
+                func->arg_names = orig_func->parameters;
                 tok = func;
             }
             else if (tok->val_type == TokenValue::IDENTIFIER && next != nullptr && next->val_type == TokenValue::LEFT_BRACKET){

@@ -36,8 +36,9 @@ void FreqTracker::remove(const std::string &var) {
 
 void FreqTracker::use(const std::string &var) {
     if(head == nullptr){
-        head = new FreqTrackerNode();
-        head->var = var;
+        FreqTrackerNode* n = new FreqTrackerNode(var);
+        head = n;
+        head = new FreqTrackerNode(var);
         tail = head;
         return;
     }
@@ -58,7 +59,7 @@ void FreqTracker::use(const std::string &var) {
         ref = ref->next;
     }
     // if variable doesn't exist, make it the tail
-    auto* newNode = new FreqTrackerNode();
+    auto* newNode = new FreqTrackerNode(var);
     newNode->var = var;
     tail->next = newNode;
     newNode->prev = tail;
@@ -188,6 +189,7 @@ uint8_t VariableTracker::add_variable(const std::string &var, int reg) {
     auto* loc = new VarLocation();
     loc->reg = new_reg;
     loc->in_reg = true;
+    loc->tag = tag_level;
     var_to_location[name] = loc;
 
     regFreq.use(name);
@@ -201,6 +203,7 @@ std::string VariableTracker::add_temp_variable() {
     auto loc = new VarLocation();
     loc->reg = new_reg;
     loc->in_reg = true;
+    loc->tag = tag_level;
     var_to_location[name] = loc;
     regFreq.use(name);
     return var;
@@ -416,7 +419,7 @@ void VariableTracker::restore_regs_from_stack() {
     stack_save_offset = 0;
 }
 
-void VariableTracker::incScope(){
+void VariableTracker::incScope(bool is_inline){
     scope_level++;
     regFreq.clear();
 
@@ -427,17 +430,18 @@ void VariableTracker::incScope(){
         }
     }
 
-    clear_regs();
+    if (!is_inline)
+        clear_regs();
 }
 
-void VariableTracker::decScope() {
+void VariableTracker::decScope(bool is_inline) {
     scope_level--;
     regFreq.clear();
 
     std::vector<std::string> names_to_delete;
 
     for (auto& [name, loc] : var_to_location) {
-        if (loc->in_reg && name[0] == '0') {
+        if (loc->in_reg && name[0] == '0' && !is_inline) {
             mipsBuilder->addInstruction(new InstrSw(loc->reg, 0, (int16_t) loc->global_mem), "");
         }
         else if (name[0] == '1'){
@@ -452,7 +456,7 @@ void VariableTracker::decScope() {
 
     clear_regs();
 
-    if (stack_offset > 0) {
+    if (!is_inline && stack_offset > 0) {
         mipsBuilder->addInstruction(new InstrAddi(29, 29, (int16_t) stack_offset), "");
         stack_offset = 0;
     }
@@ -462,7 +466,8 @@ void VariableTracker::decScope() {
         loc->in_reg = true;
         loc->reg = loc->reg_save;
         free_regs.erase(std::remove(free_regs.begin(), free_regs.end(), loc->reg), free_regs.end());
-        regFreq.use(name);
+        if (!is_inline)
+            regFreq.use(name);
     }
 }
 
@@ -593,4 +598,28 @@ FunctionToken *VariableTracker::get_inline_function(const std::string &name) {
         throw std::runtime_error("Function " + name + " not found");
     }
     return inline_functions[name];
+}
+
+void VariableTracker::inc_tag_level() {
+    tag_level++;
+}
+void VariableTracker::dec_tag_level() {
+    if (tag_level == 0) throw std::runtime_error("Tag level cannot be less than 0");
+    // remove any variables at the current tag level
+    std::vector<std::string> to_delete;
+    for (auto& [name, loc] : var_to_location) {
+        if (loc->tag == tag_level) {
+            if (loc->in_reg) {
+                free_regs.push_back(loc->reg);
+            }
+            delete loc;
+            to_delete.push_back(name);
+        }
+    }
+    for (auto& name : to_delete) {
+        var_to_location.erase(name);
+    }
+
+
+    tag_level--;
 }

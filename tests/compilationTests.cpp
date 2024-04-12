@@ -1503,4 +1503,43 @@ TEST(compilation, int_to_float_to_int){
     test_with_regs(code, 30, valMap);
 }
 
+TEST(compilation, simple_inline_function){
+    char code[] = "int a = 0;"
+                  "inline int foo(int b){"
+                  " return b + 1;"
+                  "}"
+                  "a = foo(2);";
+    std::map<std::string, int32_t> valMap = {
+            {"a", 3}
+    };
+    test_with_regs(code, 100, valMap);
+}
+
+TEST(compilation, inline_function_with_assembly){
+    char code[] = "int a = 0;"
+                  "inline int foo(int b){"
+                  " __asm__(\"addi $2, (b), 5\");"
+                  "}"
+                  "a = foo(2);";
+    std::map<std::string, int32_t> valMap = {
+            {"a", 7}
+    };
+    test_with_regs(code, 20, valMap);
+}
+
+TEST(compilation, inline_function_called_within_function){
+    char code[] = "int a = 0;"
+                  "inline int foo(int b){"
+                  " return b + 1;"
+                  "}"
+                  "int bar(int b){"
+                  " return foo(b);"
+                  "}"
+                  "a = bar(2);";
+    std::map<std::string, int32_t> valMap = {
+            {"a", 3}
+    };
+    test_with_regs(code, 100, valMap);
+
+}
 

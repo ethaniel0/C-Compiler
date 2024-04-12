@@ -5,6 +5,8 @@
 #ifndef I2C2_MIPSBUILDER_H
 #define I2C2_MIPSBUILDER_H
 
+#include <vector>
+#include <stdexcept>
 #include "../mips/MipsInstructions.h"
 
 class MipsBuilder {

@@ -45,8 +45,8 @@ MatchTypeResults match_num_types(std::string& var1, std::string& var2, VariableT
     TokenValue type2 = varTracker->get_var_type(var2);
     int refs2 = varTracker->get_var_type_refs(var2);
 
-    if (refs1 > 0) type1 = TokenValue::INT;
-    if (refs2 > 0) type2 = TokenValue::INT;
+    if (refs1 > 0 || type1 != FLOAT) type1 = TokenValue::INT;
+    if (refs2 > 0|| type2 != FLOAT) type2 = TokenValue::INT;
 
     if (type1 != type2 && (type1 == TokenValue::FLOAT || type2 == TokenValue::FLOAT)){
         std::string non_float_var;
@@ -85,8 +85,8 @@ std::string force_type(std::string& varHost, std::string& varFollow, VariableTra
     TokenValue typeFollow = tracker->get_var_type(varFollow);
     int refsFollow = tracker->get_var_type_refs(varFollow);
 
-    if (refsHost > 0) typeHost = TokenValue::INT;
-    if (refsFollow > 0) typeFollow = TokenValue::INT;
+    if (refsHost > 0 || typeHost != FLOAT) typeHost = TokenValue::INT;
+    if (refsFollow > 0 || typeFollow != FLOAT) typeFollow = TokenValue::INT;
 
     if (typeHost != typeFollow){
         std::string intermediate = tracker->add_temp_variable();
@@ -826,26 +826,66 @@ std::string compile_inline_function_call(FunctionCallToken* call, MipsBuilder* m
     FunctionToken* func = varTracker->get_inline_function(call->lexeme);
 
     std::vector<std::string> args;
-    std::map<std::string, std::string> renamed_vars;
+    std::map<std::string, std::string> saved_vars;
 
     for (int i = 0; i < call->arguments.size(); i++){
         Token* arg = call->arguments[i];
-        Token* name_arg = func->parameters[i];
+        DefinitionToken* arg_name_tok = call->arg_names[i];
         std::string result = compile_op("", arg, mipsBuilder, varTracker);
-        std::string arg_name = name_arg->lexeme;
+        std::string arg_name = arg_name_tok->name;
+
+        if (varTracker->var_exists(arg_name)){
+            std::string new_name = varTracker->add_temp_variable();
+            uint8_t cur_reg = varTracker->getReg(arg_name);
+            uint8_t reg_new_name = varTracker->getReg(new_name);
+            mipsBuilder->addInstruction(new InstrAdd(reg_new_name, 0, cur_reg), "");
+            saved_vars[arg_name] = new_name;
+            arg_name = new_name;
+        }
+
         varTracker->set_alias(arg_name, result);
         args.push_back(arg_name);
     }
     // compile rest
 
+    std::string endLabel = mipsBuilder->genUnnamedLabel();
 
-    return "";
+    varTracker->incScope(true);
+
+    BreakScope breakScope;
+    breakScope.returnLabel = endLabel;
+    compile_instructions(&breakScope, func->body->expressions, mipsBuilder, varTracker);
+
+    varTracker->decScope(true);
+
+    mipsBuilder->addInstruction(new InstrAdd(0, 0, 0), endLabel);
+
+    std::string result = "";
+
+    // load return value
+    if (call->returnType != VOID) {
+        result = varTracker->add_temp_variable();
+        uint8_t reg_result = varTracker->getReg(result);
+        mipsBuilder->addInstruction(new InstrAdd(reg_result, 0, 2), "");
+    }
+
+    for (const std::string& arg : args){
+        varTracker->remove_alias(arg);
+    }
+
+    return result;
 }
 
 std::string compile_function_call(Token* token, MipsBuilder* mipsBuilder, VariableTracker* varTracker){
     auto* call = (FunctionCallToken*) token;
+
+    if (call->is_inline){
+        return compile_inline_function_call(call, mipsBuilder, varTracker);
+    }
+
     std::vector<std::string> args;
     std::vector<int> arg_regs;
+
     for (Token* arg : call->arguments){
         std::string name = compile_op("", arg, mipsBuilder, varTracker);
         args.push_back(name);

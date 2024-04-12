@@ -7,6 +7,8 @@
 
 #include "../parsing/tokenTypes.h"
 #include "MipsBuilder.h"
+#include <vector>
+#include <stdexcept>
 
 
 /*
@@ -24,8 +26,12 @@ my register conventions:
 
 struct FreqTrackerNode{
     std::string var;
-    FreqTrackerNode* next{};
-    FreqTrackerNode* prev{};
+    FreqTrackerNode* next = nullptr;
+    FreqTrackerNode* prev = nullptr;
+
+    explicit FreqTrackerNode(const std::string& var){
+        this->var = var;
+    }
 };
 
 class FreqTracker{
@@ -64,6 +70,8 @@ struct VarLocation{
     TokenValue type;
     int typeRefs;
 
+    int tag;
+
     VarLocation(){
         reg = 0;
         in_reg = false;
@@ -76,6 +84,7 @@ struct VarLocation{
         must_load = false;
         type = TokenValue::NONE;
         typeRefs = 0;
+        tag = 0;
     }
 };
 
@@ -97,6 +106,8 @@ private:
 
     int scope_level = 0;
 
+    int tag_level = 0;
+
     std::vector<uint8_t> free_regs;
 
     void clear_regs();
@@ -108,6 +119,7 @@ private:
     void store_var_in_stack(const std::string& var, const std::string& label);
     void store_var_in_memory(const std::string& var);
     std::string get_varname(const std::string& var, int scope=-1);
+
 public:
     explicit VariableTracker(MipsBuilder* builder){
         mem_offset = 0;
@@ -162,10 +174,10 @@ public:
     void reduce_stack_offset(int offset);
 
     /// Increases the scope. Clears register frequency tracking.
-    void incScope();
+    void incScope(bool is_inline = false);
 
     /// Decreases the scope. Clears register frequency tracking. Loads any changed global variable values back into memory.
-    void decScope();
+    void decScope(bool is_inline = false);
 
     /// Gets a variable's address in memory.
     /// Returns a negative or zero address for global variables, positive address for stack.
@@ -178,7 +190,8 @@ public:
     void add_inline_function(const std::string& name, FunctionToken* function);
     FunctionToken* get_inline_function(const std::string& name);
 
-
+    void inc_tag_level();
+    void dec_tag_level();
 };
 
 #endif //I2C2_VARIABLETRACKER_H
