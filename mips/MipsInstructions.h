@@ -81,7 +81,6 @@ public:
         uint8_t rs = this->rs & 0b11111;
         return opcode << 27 | rd << 22 | rs << 17 | (imm & 0b11111111111111111);
     }
-
 };
 
 class InstrSub : public Instruction{

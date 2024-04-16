@@ -13,7 +13,7 @@ int main(int argc, char** argv) {
      -r a b ... = run, print variables a, b, ... at end
      */
 
-    std::string output_file = "";
+    std::string output_file;
     std::vector<std::string> files;
     std::vector<std::string> runVars;
     std::string output_type = "s";
@@ -79,7 +79,6 @@ int main(int argc, char** argv) {
     builder.prependInstruction(new InstrAddi(28, 0, mem_loc));
 
     builder.simplify();
-
     builder.linkLabels();
 
     // save to file
@@ -109,6 +108,20 @@ int main(int argc, char** argv) {
                 out << "00000000000000000000000000000000" << std::endl;
             }
         }
+    }
+    else if (output_type == "numbers"){
+        std::vector<uint32_t> mem = builder.export_mem();
+        std::ofstream out(output_file);
+        if (!out.is_open()) {
+            std::cerr << "Could not open output file " << output_file << std::endl;
+            return 1;
+        }
+        out << "{";
+        for (int i = 0; i < mem.size(); i++) {
+            out << mem[i];
+            if (i < mem.size() - 1) out << ", ";
+        }
+        out << "}";
     }
     else {
         std::cerr << "Invalid output type " << output_type << std::endl;

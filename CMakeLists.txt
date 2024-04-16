@@ -3,7 +3,8 @@ project(i2c2)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(i2c2 main.cpp
+add_executable(i2c2
+        main.cpp
         parsing/parse.cpp
         parsing/token.cpp
         mips/MipsRunner.cpp
