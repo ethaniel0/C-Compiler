@@ -11,6 +11,9 @@ int MipsRunner::run(int maxIter) {
         imem[pc]->execute(dmem, &regfile, &next_pc);
         pc = next_pc;
         count++;
+        if (count != 0 && count % 50 == 0){
+            regfile.set(3, regfile.get(3) + 1);
+        }
     }
     return count;
 }

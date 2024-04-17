@@ -78,7 +78,7 @@ int main(int argc, char** argv) {
     int mem_loc = tracker.get_mem_offset();
     builder.prependInstruction(new InstrAddi(28, 0, mem_loc));
 
-//    builder.simplify();
+    builder.simplify();
     builder.linkLabels();
 
     // save to file
@@ -131,7 +131,7 @@ int main(int argc, char** argv) {
     if (run){
         std::vector<Instruction*> instructions = builder.getInstructions();
         MipsRunner runner(2048, instructions.data(), instructions.size());
-        int num_cycles = runner.run(2000);
+        int num_cycles = runner.run(50000);
         printf("Ran for %d cycles\n", num_cycles);
         for (const std::string& var : runVars){
             uint8_t reg = tracker.getReg(var, false);

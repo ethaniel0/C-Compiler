@@ -325,6 +325,7 @@ void VariableTracker::reserve_reg(uint8_t reg) {
         if (loc->in_reg && loc->reg == reg) {
             uint8_t new_reg = getFreeReg();
             loc->reg = new_reg;
+            remove_free_reg(new_reg);
             if (reg >= 8 && reg <= 27) free_regs.push_back(reg);
             mipsBuilder->addInstruction(new InstrAddi(new_reg, reg, 0), "");
             break;
@@ -332,8 +333,8 @@ void VariableTracker::reserve_reg(uint8_t reg) {
     }
 }
 
-void VariableTracker::removeVar(const std::string &var) {
-    std::string name = get_varname(var);
+void VariableTracker::removeVar(const std::string &var, bool check_scope) {
+    std::string name = check_scope ? get_varname(var) : var;
     regFreq.remove(name);
     if (var_to_location.find(name) == var_to_location.end()) {
         return;
@@ -486,8 +487,7 @@ void VariableTracker::decScope(bool is_inline) {
         }
     }
     for (auto& name : names_to_delete){
-        auto* loc = var_to_location[name];
-        removeVar(name);
+        removeVar(name, false);
     }
 
     scope_level--;

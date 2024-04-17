@@ -158,7 +158,7 @@ public:
     uint8_t add_variable(const std::string& var, int reg=-1);
 
     /// Removes a variable from the tracker
-    void removeVar(const std::string& var);
+    void removeVar(const std::string& var, bool check_scope = true);
     /// Removes a temporary variable from the tracker (will not remove a non-temporary value)
     void removeIfTemp(const std::string& var);
 
