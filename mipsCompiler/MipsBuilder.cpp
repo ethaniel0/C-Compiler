@@ -118,6 +118,7 @@ void MipsBuilder::filterJToNext(){
         std::string j_label_to = j->label;
         std::string next_label = invLabels[next];
         if (j_label_to != next_label) continue;
+
         instructions.erase(instructions.begin() + i);
 
         if (invLabels.find(j) != invLabels.end()){

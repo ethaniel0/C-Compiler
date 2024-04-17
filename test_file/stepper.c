@@ -6,14 +6,20 @@ void stepMotor(int pin0, int pin1, int pin2, int pin3) {
     //   B0011, // Step C: CD
     //   B1001  // Step D: DA
     // };
-    int seq = 37740;
-    int mod4 = _stepper_step & 3;
-    for (int i = 0; i < mod4; i += 1){
-        seq = seq >> 4;
-    }
-    digitalWrite(pin0,seq & 1);
-    digitalWrite(pin1,(seq >> 1) & 1);
-    digitalWrite(pin2,(seq >> 2) & 1);
-    digitalWrite(pin3,(seq >> 3) & 1);
-    _stepper_step += 1;
+
+    digitalWrite(0, 1);
+//    digitalWrite(pin1, 1);
+//    digitalWrite(pin2, 1);
+//    digitalWrite(pin3, 1);
+
+//    int seq = 37740;
+//    int mod4 = _stepper_step & 3;
+//    for (int i = 0; i < mod4; i += 1){
+//        seq = seq >> 4;
+//    }
+//    digitalWrite(pin0,seq & 1);
+//    digitalWrite(pin1,(seq >> 1) & 1);
+//    digitalWrite(pin2,(seq >> 2) & 1);
+//    digitalWrite(pin3,(seq >> 3) & 1);
+//    _stepper_step = (_stepper_step + 1) & 3;
 }

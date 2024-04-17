@@ -78,7 +78,7 @@ int main(int argc, char** argv) {
     int mem_loc = tracker.get_mem_offset();
     builder.prependInstruction(new InstrAddi(28, 0, mem_loc));
 
-    builder.simplify();
+//    builder.simplify();
     builder.linkLabels();
 
     // save to file

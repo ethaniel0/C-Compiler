@@ -3,6 +3,7 @@
 //
 
 #include "VariableTracker.h"
+#include <algorithm>
 
 void FreqTracker::remove(const std::string &var) {
     if(head == nullptr){
@@ -343,12 +344,16 @@ void VariableTracker::removeVar(const std::string &var) {
     }
     var_to_location.erase(name);
     regFreq.remove(name);
+
     delete loc;
 
     remove_alias(var);
 
     if (var_to_stack_save.find(name) != var_to_stack_save.end()) {
         var_to_stack_save.erase(name);
+    }
+    if (var_to_reg_save.find(name) != var_to_reg_save.end()) {
+        var_to_reg_save.erase(name);
     }
 }
 
@@ -482,8 +487,7 @@ void VariableTracker::decScope(bool is_inline) {
     }
     for (auto& name : names_to_delete){
         auto* loc = var_to_location[name];
-        var_to_location.erase(name);
-        delete loc;
+        removeVar(name);
     }
 
     scope_level--;
@@ -501,7 +505,9 @@ void VariableTracker::decScope(bool is_inline) {
         for (auto &[name, loc]: var_to_reg_save) {
             loc->in_reg = true;
             loc->reg = loc->reg_save;
+
             remove_free_reg(loc->reg);
+
             regFreq.use(name);
         }
     }
@@ -655,7 +661,6 @@ void VariableTracker::dec_tag_level() {
     for (auto& name : to_delete) {
         var_to_location.erase(name);
     }
-
 
     tag_level--;
 }

@@ -133,9 +133,11 @@ void assembleMips(const std::string& mips, MipsBuilder* builder, VariableTracker
             builder->addInstruction(new InstrSll(info.rs, info.rt, std::stoi(shamt)), label);
         }
         else if (token == "sra"){
-            RInfo info = getRInfo(&tokenizer, tracker);
-            std::string shamt = next_token(&tokenizer);
-            builder->addInstruction(new InstrSra(info.rs, info.rt, std::stoi(shamt)), label);
+            std::string rs = next_token(&tokenizer);
+            std::string rt = next_token(&tokenizer);
+            std::string num = next_token(&tokenizer);
+            int shamt = std::stoi(num);
+            builder->addInstruction(new InstrSra(getInput(rs, tracker), getInput(rt, tracker), shamt), label);
         }
 
         else if (token == "lw"){
@@ -159,7 +161,7 @@ void assembleMips(const std::string& mips, MipsBuilder* builder, VariableTracker
         }
         else if (token == "jal"){
             std::string to = next_token(&tokenizer);
-            builder->addInstruction(new InstrJal(label), label);
+            builder->addInstruction(new InstrJal(to), label);
         }
         else if (token == "jr"){
             std::string rs = next_token(&tokenizer);
