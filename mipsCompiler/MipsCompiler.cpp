@@ -309,6 +309,7 @@ void compile_function(BreakScope* breakScope, Token* token, MipsBuilder* mipsBui
     // load first four arguments into registers
     for (int i = 0; i < function->parameters.size() && i < 4; i++){
         varTracker->add_variable(function->parameters[i]->name, 4+i);
+        varTracker->set_var_type_refs(function->parameters[i]->name, function->parameters[i]->refCount);
     }
 
     // if more arguments, load them into stack pointer
@@ -382,7 +383,6 @@ bool sort_ast(std::vector<Token*>* tokens, Scope* scope){
             if (f->name == "main"){
                 has_main = true;
             }
-
 
             functions.push_back((*tokens)[i]);
             // remove token

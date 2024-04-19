@@ -1,70 +1,66 @@
 inline void pinMode(int pin, int mode){
-    int addr = 12288 + pin; // 2^12 + 2^13 + pin num
-    __asm__(
-            "sw (mode) 0((addr))"
-            );
+    // 2^12 + 2^13 + pin num
+    __asm__("sw (mode) 12288((pin))");
 }
-inline void digitalWrite(int pin, int l){
-    int addr = 4096 + pin; // 2^13 + pin num
-    __asm__(
-            "sw (l) 0((addr))"
-            );
+inline void digitalWrite(int pin, int level){
+    // 2^13 + pin num
+    __asm__("sw (level) 4096((pin))");
 }
 
 inline int digitalRead(int pin){
-    int addr = 4096 + pin; // 2^12 + pin num
-    __asm__(
-            "lw $v0 0((addr))"
-            );
+    // 2^12 + pin num
+    __asm__("lw $return 4096((pin))");
 }
 
 inline int micros(){
-    __asm__("addi $2 $3 0");
+    __asm__("addi $return $3 0");
 }
 
 void delayMicroseconds(int m){
-    int clk = micros();
-    int now = micros();
-    while (now - clk < m){now = micros();}
-}
-
-int pulseIn(int pin, int level, int maxTime){
     __asm__(
             "addi $8 $3 0"
-            "addi $9 $3 0"
-            "addi (pin) (pin) 4096"
-            "lw $10 0((pin))"
-            "pulseIn_loop:"
-            "bne $10 (level) pulseIn_inner_loop"
-            "j pulseIn_outloop"
-            "pulseIn_inner_loop:"
-            "lw $10 0((pin))"
-            "sub $11 $3 $8"
-            "blt (maxTime), $11, pulseIn_end"
-            "j pulseIn_loop"
-            "addi $8 $3 0"
-            "lw $10 0((pin))"
-            "pulseIn_loop2:"
-            "bne $10 (level) pulseIn_end"
-            "lw $10 0((pin))"
-            "sub $11 $3 $8"
-            "blt (maxTime), $11, pulseIn_end"
-            "j pulseIn_loop2"
-            "pulseIn_end:"
-            "sub $2 $3 $8"
-            ""
+            "sub $9 $3 $8"
+            "delayMicrosLoopStart:"
+            "blt (m) $9 delayMicrosEnd"
+            "sub $9 $3 $8"
+            "j delayMicrosLoopStart"
+            "delayMicrosEnd:"
+            "add $0 $0 $0"
             );
-//    int clk = micros();
-//    int now = micros();
-//    while (digitalRead(pin) != level){
-//        now = micros();
-//        if (now - clk > maxTime){ return 0; }
-//    }
-//    clk = micros();
-//    while (digitalRead(pin) == level){
-//        now = micros();
-//        if (now - clk > maxTime){ return 0; }
-//    }
-//    clk = micros() - clk;
-//    return clk;
 }
+
+int pulseIn(int puslsePin, int pulseLevel, int pulseMaxTime){
+    int clk = micros();
+    while (digitalRead(puslsePin) != pulseLevel){
+        int now = micros();
+        if (pulseMaxTime < now - clk){ return 0; }
+    }
+    clk = micros();
+    while (digitalRead(puslsePin) == pulseLevel){
+        int now = micros();
+        if (pulseMaxTime < now - clk){ return 0; }
+    }
+    return micros() - clk;
+}
+
+void write_8_bit_serial(int pin, int val){
+    // delay time is 1042 us for 9600 baud rate
+    int bit_delay = 1042;
+    digitalWrite(pin, 1);
+    delayMicroseconds(bit_delay);
+    for (int i = 0; i < 8; i += 1){
+        digitalWrite(pin, val & 1);
+//        val >>= 1;
+//        delayMicroseconds(bit_delay);
+    }
+//    digitalWrite(pin, 1);
+//    delayMicroseconds(bit_delay >> 2);
+}
+
+//void write_32_bit_serial(int pin, int val){
+//    // delay time is 1042 us for 9600 baud rate
+//    write_8_bit_serial(pin, val & 255);
+//    write_8_bit_serial(pin, (val >> 8) & 255);
+//    write_8_bit_serial(pin, (val >> 16) & 255);
+//    write_8_bit_serial(pin, (val >> 24) & 255);
+//}

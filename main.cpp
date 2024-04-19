@@ -104,7 +104,7 @@ int main(int argc, char** argv) {
             out << std::endl;
         }
         if (mem.size() < 4096){
-            for (int i = 0; i < 4095 - mem.size(); i++) {
+            for (int i = 0; i < 4096 - mem.size(); i++) {
                 out << "00000000000000000000000000000000" << std::endl;
             }
         }

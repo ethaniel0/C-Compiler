@@ -38,6 +38,37 @@ TEST(compilation, one_add){
     EXPECT_EQ(i2->type, InstructionType::I_ADDI, %d)
 }
 
+TEST(compilation, one_add_with_char){
+    char code[] = "1 + 'a'";
+
+    std::vector<Token*> token_ptrs = tokenize(code);
+    TokenIterator tokens_iter(token_ptrs);
+    Scope scope(nullptr);
+    std::vector<Token*> ast = parse(tokens_iter, &scope);
+
+    auto* expr = (BinaryOpToken*) ast[0];
+
+    ASSERT_EQ(expr->type, TokenType::TYPE_OPERATOR, %d)
+    ASSERT_EQ(expr->val_type, TokenValue::ADD, %d)
+
+    MipsBuilder builder;
+    VariableTracker tracker(&builder);
+    BreakScope breakScope;
+    std::string result = compile_expr(&breakScope, expr, &builder, &tracker);
+
+    builder.linkLabels();
+
+    std::vector<Instruction*> instructions = builder.getInstructions();
+    ASSERT_EQ(instructions.size(), 2, %d)
+    Instruction* i1 = instructions[0];
+    Instruction* i2 = instructions[1];
+    EXPECT_EQ(i1->type, InstructionType::I_ADDI, %d)
+    EXPECT_EQ(i2->type, InstructionType::I_ADDI, %d)
+    std::string i2_str = i2->export_str();
+    EXPECT_EQ_SPECIAL(i2_str, "addi $9, $8, 97", %s, .c_str(),)
+
+}
+
 TEST(compilation, one_def){
     char code[] = "int a = 1;";
 

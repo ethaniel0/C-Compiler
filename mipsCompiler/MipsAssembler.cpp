@@ -16,6 +16,13 @@ int getInput(const std::string& inp, VariableTracker* tracker){
         if (sub == "a1") return 5;
         if (sub == "a2") return 6;
         if (sub == "a3") return 7;
+        if (sub == "sp") return 29;
+        if (sub == "return"){
+            if (!tracker->in_inline()){
+                return 2;
+            }
+            return tracker->getReg("return");
+        }
         int reg = std::stoi(sub);
         return reg;
     }
@@ -111,9 +118,13 @@ void assembleMips(const std::string& mips, MipsBuilder* builder, VariableTracker
             RInfo info = getRInfo(&tokenizer, tracker);
             builder->addInstruction(new InstrSub(info.rs, info.rt, info.rd), label);
         }
-        else if (token == "mult"){
+        else if (token == "mul"){
             RInfo info = getRInfo(&tokenizer, tracker);
             builder->addInstruction(new InstrMul(info.rs, info.rt, info.rd), label);
+        }
+        else if (token == "hmul"){
+            RInfo info = getRInfo(&tokenizer, tracker);
+            builder->addInstruction(new InstrHMul(info.rs, info.rt, info.rd), label);
         }
         else if (token == "div"){
             RInfo info = getRInfo(&tokenizer, tracker);
@@ -138,6 +149,14 @@ void assembleMips(const std::string& mips, MipsBuilder* builder, VariableTracker
             std::string num = next_token(&tokenizer);
             int shamt = std::stoi(num);
             builder->addInstruction(new InstrSra(getInput(rs, tracker), getInput(rt, tracker), shamt), label);
+        }
+        else if (token == "slt"){
+            RInfo info = getRInfo(&tokenizer, tracker);
+            builder->addInstruction(new InstrSlt(info.rd, info.rs, info.rt), label);
+        }
+        else if (token == "sgt"){
+            RInfo info = getRInfo(&tokenizer, tracker);
+            builder->addInstruction(new InstrSgt(info.rd, info.rs, info.rt), label);
         }
 
         else if (token == "lw"){

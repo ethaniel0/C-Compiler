@@ -186,6 +186,7 @@ public:
         this->body = nullptr;
         this->returnType = valueType;
         this->refCount = 0;
+        is_inline = false;
     }
 };
 

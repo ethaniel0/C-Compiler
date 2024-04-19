@@ -252,6 +252,35 @@ public:
 
 };
 
+class InstrHMul: public Instruction{
+private:
+    uint8_t rd, rs, rt;
+public:
+    InstrHMul(uint8_t rd, uint8_t rs, uint8_t rt): Instruction(I_HMUL){
+        this->rs = rs;
+        this->rt = rt;
+        this->rd = rd;
+    }
+    void execute(int32_t *dmem, RegisterFile* regfile, uint32_t* pc) override{
+        int64_t a = regfile->get(rs);
+        int64_t b = regfile->get(rt);
+        int32_t result = (a * b) >> 16;
+        regfile->set(rd, result);
+    }
+    std::string export_str() override{
+        return "hmul $" + std::to_string(rd) + ", $" + std::to_string(rs) + ", $" + std::to_string(rt);
+    }
+    uint32_t export_mem() override{
+        uint8_t opcode = 0;
+        uint8_t rd = this->rd & 0b11111;
+        uint8_t rs = this->rs & 0b11111;
+        uint8_t rt = this->rt & 0b11111;
+        uint8_t aluop = 0b01000;
+        return opcode << 27 | rd << 22 | rs << 17 | rt << 12 | 0 << 7 | aluop << 2;
+    }
+
+};
+
 class InstrDiv : public Instruction{
 private:
     uint8_t rd, rs, rt;
@@ -283,6 +312,85 @@ public:
         return opcode << 27 | rd << 22 | rs << 17 | rt << 12 | 0 << 7 | aluop << 2;
     }
 
+};
+
+class InstrSlt : public Instruction{
+private:
+    uint8_t rd, rs, rt;
+public:
+    InstrSlt(uint8_t rd, uint8_t rs, uint8_t rt): Instruction(I_SLT){
+        this->rs = rs;
+        this->rt = rt;
+        this->rd = rd;
+    }
+    void execute(int32_t *dmem, RegisterFile* regfile, uint32_t* pc) override{
+        regfile->set(rd, regfile->get(rs) < regfile->get(rt) ? 1 : 0);
+    }
+    std::string export_str() override{
+        return "slt $" + std::to_string(rd) + ", $" + std::to_string(rs) + ", $" + std::to_string(rt);
+    }
+    uint32_t export_mem() override{
+        uint8_t opcode = 0;
+        uint8_t rd = this->rd & 0b11111;
+        uint8_t rs = this->rs & 0b11111;
+        uint8_t rt = this->rt & 0b11111;
+        uint8_t shamt = 0;
+        uint8_t aluop = 0b01001;
+        return opcode << 27 | rd << 22 | rs << 17 | rt << 12 | shamt << 7 | aluop << 2;
+    }
+};
+
+class InstrSgt: public Instruction{
+private:
+    uint8_t rd, rs, rt;
+public:
+    InstrSgt(uint8_t rd, uint8_t rs, uint8_t rt): Instruction(I_SGT){
+        this->rs = rs;
+        this->rt = rt;
+        this->rd = rd;
+    }
+    void execute(int32_t *dmem, RegisterFile* regfile, uint32_t* pc) override{
+        regfile->set(rd, regfile->get(rs) > regfile->get(rt) ? 1 : 0);
+    }
+    std::string export_str() override{
+        return "sgt $" + std::to_string(rd) + ", $" + std::to_string(rs) + ", $" + std::to_string(rt);
+    }
+    uint32_t export_mem() override{
+        uint8_t opcode = 0;
+        uint8_t rd = this->rd & 0b11111;
+        uint8_t rs = this->rs & 0b11111;
+        uint8_t rt = this->rt & 0b11111;
+        uint8_t shamt = 0;
+        uint8_t aluop = 0b01101;
+        return opcode << 27 | rd << 22 | rs << 17 | rt << 12 | shamt << 7 | aluop << 2;
+    }
+
+};
+
+class InstrSge: public Instruction{
+private:
+    uint8_t rd, rs, rt;
+public:
+    InstrSge(uint8_t rd, uint8_t rs, uint8_t rt): Instruction(I_SGE){
+        this->rs = rs;
+        this->rt = rt;
+        this->rd = rd;
+    }
+    void execute(int32_t *dmem, RegisterFile* regfile, uint32_t* pc) override{
+        regfile->set(rd, regfile->get(rs) >= regfile->get(rt) ? 1 : 0);
+    }
+    std::string export_str() override{
+        return "sge $" + std::to_string(rd) + ", $" + std::to_string(rs) + ", $" + std::to_string(rt);
+    }
+    uint32_t export_mem() override{
+        uint8_t opcode = 0;
+        uint8_t rd = this->rd & 0b11111;
+        uint8_t rs = this->rs & 0b11111;
+        uint8_t rt = this->rt & 0b11111;
+        uint8_t shamt = 0;
+        uint8_t aluop = 0b01011;
+        return opcode << 27 | rd << 22 | rs << 17 | rt << 12 | shamt << 7 | aluop << 2;
+    }
 };
 
 // MEMORY

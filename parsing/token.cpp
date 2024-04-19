@@ -320,7 +320,9 @@ std::vector<Token*> tokenize(std::string source) {
                 }
                 else if (c == '\'') {
                     current++;
-                    tokens.push_back(new Token(TokenType::TYPE_VALUE, TokenValue::CHARACTER, source.substr(current, 1), line));
+                    char ch = source.at(current);
+                    std::string lexeme = std::to_string((int) ch);
+                    tokens.push_back(new Token(TokenType::TYPE_VALUE, TokenValue::NUMBER_INT, lexeme, line));
                     current++;
                 }
                 else if (isdigit(c)) {

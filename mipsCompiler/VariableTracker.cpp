@@ -91,11 +91,9 @@ VariableTracker::~VariableTracker() {
     var_to_location.clear();
     var_to_stack_save.clear();
     var_to_reg_save.clear();
-    int s = free_regs.size();
     if (!free_regs.empty()) {
         free_regs.clear();
     }
-//    free_regs.clear();
 }
 
 void VariableTracker::remove_free_reg(int reg) {
@@ -116,8 +114,9 @@ void VariableTracker::store_var_in_memory(const std::string& var) {
     if (loc->in_global_mem){
         if (loc->in_reg){
             mipsBuilder->addInstruction(new InstrSw(loc->reg, 0, (int16_t) loc->global_mem), "");
+            loc->in_reg = false;
+            free_regs.push_back(loc->reg);
         }
-        free_regs.push_back(loc->reg);
         return;
     }
 
@@ -128,8 +127,8 @@ void VariableTracker::store_var_in_memory(const std::string& var) {
     if (loc->in_reg){
         free_regs.push_back(loc->reg);
         mipsBuilder->addInstruction(new InstrSw(loc->reg, 0, (int16_t) mem_offset), "");
+        loc->in_reg = false;
     }
-    loc->in_reg = false;
 
     mem_offset++;
 }
@@ -211,6 +210,7 @@ uint8_t VariableTracker::add_variable(const std::string &var, int reg) {
     else{
         reserve_reg(reg);
         new_reg = reg;
+        remove_free_reg(reg);
     }
 
     auto* loc = new VarLocation();
@@ -218,6 +218,11 @@ uint8_t VariableTracker::add_variable(const std::string &var, int reg) {
     loc->in_reg = true;
     loc->tag = tag_level;
     var_to_location[name] = loc;
+    if (scope_level == 0) {
+        loc->in_global_mem = true;
+        loc->global_mem = mem_offset;
+        mem_offset++;
+    }
 
     regFreq.use(name);
     return new_reg;
@@ -234,6 +239,10 @@ std::string VariableTracker::add_temp_variable() {
     var_to_location[name] = loc;
     regFreq.use(name);
     return var;
+}
+
+std::string VariableTracker::gen_temp_var_name() {
+    return "<temp" + std::to_string(tempVarCounter++) + ">";
 }
 
 uint8_t VariableTracker::getReg(const std::string &var, bool modify) {
@@ -322,6 +331,8 @@ bool VariableTracker::var_exists(const std::string &var) {
 
 void VariableTracker::reserve_reg(uint8_t reg) {
     for (auto& [name, loc] : var_to_location) {
+        VarLocation* l = var_to_location[name];
+        std::string n = name;
         if (loc->in_reg && loc->reg == reg) {
             uint8_t new_reg = getFreeReg();
             loc->reg = new_reg;
@@ -361,6 +372,11 @@ void VariableTracker::removeVar(const std::string &var, bool check_scope) {
 void VariableTracker::removeIfTemp(const std::string &var) {
     if (var.find("<temp") != std::string::npos) {
         removeVar(var);
+        return;
+    }
+    std::string scoped_name = get_varname(var);
+    if (scoped_name.find("<temp") != std::string::npos) {
+        removeVar(var);
     }
 }
 
@@ -383,7 +399,6 @@ void VariableTracker::renameVar(const std::string& oldVar, const std::string& ne
 void VariableTracker::clear_regs() {
     for (auto& [name, loc] : var_to_location) {
         if (loc->in_reg) {
-            free_regs.push_back(loc->reg);
             loc->in_reg = false;
         }
     }
@@ -459,6 +474,8 @@ void VariableTracker::incScope(bool is_inline){
     scope_level++;
     regFreq.clear();
 
+    if (is_inline) return;
+
     for (auto& [name, loc] : var_to_location) {
         if (loc->in_reg) {
             var_to_reg_save[name] = loc;
@@ -466,8 +483,7 @@ void VariableTracker::incScope(bool is_inline){
         }
     }
 
-    if (!is_inline)
-        clear_regs();
+    clear_regs();
 }
 
 void VariableTracker::decScope(bool is_inline) {
@@ -642,25 +658,9 @@ FunctionToken *VariableTracker::get_inline_function(const std::string &name) {
     return inline_functions[name];
 }
 
-void VariableTracker::inc_tag_level() {
-    tag_level++;
+bool VariableTracker::in_inline(){
+    return in_inline_func;
 }
-void VariableTracker::dec_tag_level() {
-    if (tag_level == 0) throw std::runtime_error("Tag level cannot be less than 0");
-    // remove any variables at the current tag level
-    std::vector<std::string> to_delete;
-    for (auto& [name, loc] : var_to_location) {
-        if (loc->tag == tag_level) {
-            if (loc->in_reg) {
-                free_regs.push_back(loc->reg);
-            }
-            delete loc;
-            to_delete.push_back(name);
-        }
-    }
-    for (auto& name : to_delete) {
-        var_to_location.erase(name);
-    }
-
-    tag_level--;
+void VariableTracker::set_in_inline(bool in) {
+    in_inline_func = in;
 }

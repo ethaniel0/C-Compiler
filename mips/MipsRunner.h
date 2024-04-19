@@ -45,7 +45,7 @@ public:
 };
 
 enum InstructionType{
-    I_ADD, I_ADDI, I_SUB, I_AND, I_OR, I_SLL, I_SRA, I_MUL, I_DIV,
+    I_ADD, I_ADDI, I_SUB, I_AND, I_OR, I_SLL, I_SRA, I_MUL, I_HMUL, I_DIV, I_SLT, I_SGT, I_SGE,
     I_SW, I_LW,
     I_J, I_BNE, I_JR, I_JAL, I_BLT,
     I_BEX, I_SETX,

@@ -115,6 +115,8 @@ private:
     uint8_t getFreeReg();
     int tempVarCounter = 0;
 
+    bool in_inline_func = false;
+
     void store_reg_in_stack(uint8_t reg, const std::string& label);
     void store_var_in_stack(const std::string& var, const std::string& label);
     void store_var_in_memory(const std::string& var);
@@ -132,6 +134,7 @@ public:
     ~VariableTracker();
     
     std::string add_temp_variable();
+    std::string gen_temp_var_name();
     int get_mem_offset();
 
     /// Gets the register of a variable, loads it from memory into a register, or adds if it doesn't exist
@@ -180,6 +183,9 @@ public:
     /// Decreases the scope. Clears register frequency tracking. Loads any changed global variable values back into memory.
     void decScope(bool is_inline = false);
 
+    bool in_inline();
+    void set_in_inline(bool in);
+
     /// Gets a variable's address in memory.
     /// Returns a negative or zero address for global variables, positive address for stack.
     /// If positive (on stack), subtract 1
@@ -190,9 +196,6 @@ public:
 
     void add_inline_function(const std::string& name, FunctionToken* function);
     FunctionToken* get_inline_function(const std::string& name);
-
-    void inc_tag_level();
-    void dec_tag_level();
 };
 
 #endif //I2C2_VARIABLETRACKER_H

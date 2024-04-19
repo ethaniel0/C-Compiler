@@ -233,10 +233,8 @@ RTypeVals comp_bin_op(Token* token, MipsBuilder* mipsBuilder, VariableTracker* v
 
     uint8_t reg_a = varTracker->getReg(left);
     uint8_t reg_b = varTracker->getReg(right);
-    if (op->left->val_type != TokenValue::IDENTIFIER)
-        varTracker->removeVar(left);
-    if (op->right->val_type != TokenValue::IDENTIFIER)
-        varTracker->removeVar(right);
+    varTracker->removeIfTemp(left);
+    varTracker->removeIfTemp(right);
 
     std::string result = varTracker->add_temp_variable();
     uint8_t reg_result = varTracker->getReg(result);
@@ -266,10 +264,8 @@ RTypeVals comp_bin_op_eq(Token* token, MipsBuilder* mipsBuilder, VariableTracker
 
     uint8_t reg_a = varTracker->getReg(left);
     uint8_t reg_b = varTracker->getReg(right);
-    if (op->left->val_type != TokenValue::IDENTIFIER)
-        varTracker->removeVar(left);
-    if (op->right->val_type != TokenValue::IDENTIFIER)
-        varTracker->removeVar(right);
+    varTracker->removeIfTemp(left);
+    varTracker->removeIfTemp(right);
 
     TokenValue resultType = varTracker->get_var_type(left);
     if (match_types) resultType = get_result_type(left, right, varTracker);
@@ -398,13 +394,7 @@ std::string comp_lt(const std::string& break_to, Token* token, MipsBuilder* mips
      addi $reg, $0, 1
      label_end: noop, this can be filtered out later in an optimizing step
     */
-    std::string label_true = mipsBuilder->genUnnamedLabel();
-    std::string label_end = mipsBuilder->genUnnamedLabel();
-    mipsBuilder->addInstruction(new InstrBlt(vals.rs, vals.rt, label_true), "");
-    mipsBuilder->addInstruction(new InstrAddi(vals.rd, 0, 0), "");
-    mipsBuilder->addInstruction(new InstrJ(label_end), "");
-    mipsBuilder->addInstruction(new InstrAddi(vals.rd, 0, 1), label_true);
-    mipsBuilder->addInstruction(new InstrAdd(0, 0, 0), label_end); // noop
+    mipsBuilder->addInstruction(new InstrSlt(vals.rd, vals.rs, vals.rt), "");
     varTracker->set_var_type(vals.resultTag, TokenValue::INT);
     return vals.resultTag;
 }
@@ -469,10 +459,11 @@ std::string comp_gt(const std::string& break_to, Token* token, MipsBuilder* mips
          bne $reg_a, $reg_b, label
          label_no_jump: nop
          */
-        std::string label_no_jump = mipsBuilder->genUnnamedLabel();
-        mipsBuilder->addInstruction(new InstrBlt(vals.rd, vals.rt, label_no_jump), "");
-        mipsBuilder->addInstruction(new InstrBne(vals.rd, vals.rt, break_to), "");
-        mipsBuilder->addInstruction(new InstrAdd(0, 0, 0), label_no_jump);
+        std::string temp_var = varTracker->add_temp_variable();
+        uint8_t reg_temp = varTracker->getReg(temp_var);
+        mipsBuilder->addInstruction(new InstrSgt(reg_temp, vals.rs, vals.rt), "");
+        mipsBuilder->addInstruction(new InstrBne(reg_temp, 0, break_to), "");
+        varTracker->removeVar(temp_var);
         varTracker->set_var_type(vals.resultTag, TokenValue::INT);
         return vals.resultTag;
     }
@@ -487,15 +478,7 @@ std::string comp_gt(const std::string& break_to, Token* token, MipsBuilder* mips
      label_true: addi $reg, $0, 1
      label_end: noop, this can be filtered out later in an optimizing step
     */
-    std::string label_true = mipsBuilder->genUnnamedLabel();
-    std::string label_false = mipsBuilder->genUnnamedLabel();
-    std::string label_end = mipsBuilder->genUnnamedLabel();
-    mipsBuilder->addInstruction(new InstrBlt(vals.rs, vals.rt, label_false), "");
-    mipsBuilder->addInstruction(new InstrBne(vals.rs, vals.rt, label_true), "");
-    mipsBuilder->addInstruction(new InstrAddi(vals.rd, 0, 0), label_false);
-    mipsBuilder->addInstruction(new InstrJ(label_end), "");
-    mipsBuilder->addInstruction(new InstrAddi(vals.rd, 0, 1), label_true);
-    mipsBuilder->addInstruction(new InstrAdd(0, 0, 0), label_end); // noop
+    mipsBuilder->addInstruction(new InstrSgt(vals.rd, vals.rs, vals.rt), "");
     varTracker->set_var_type(vals.resultTag, TokenValue::INT);
     return vals.resultTag;
 }
@@ -512,13 +495,11 @@ std::string comp_gte(const std::string& break_to, Token* token, MipsBuilder* mip
         // label_stage_2: blt $reg_a, $reg_b, label_no_jump
         // j label
         // label_no_jump: nop
-        std::string label_stage_2 = mipsBuilder->genUnnamedLabel();
-        std::string label_no_jump = mipsBuilder->genUnnamedLabel();
-        mipsBuilder->addInstruction(new InstrBne(vals.rs, vals.rt, label_stage_2), "");
-        mipsBuilder->addInstruction(new InstrJ(break_to), "");
-        mipsBuilder->addInstruction(new InstrBlt(vals.rs, vals.rt, label_no_jump), label_stage_2);
-        mipsBuilder->addInstruction(new InstrJ(break_to), "");
-        mipsBuilder->addInstruction(new InstrAdd(0, 0, 0), label_no_jump);
+        std::string temp_var = varTracker->add_temp_variable();
+        uint8_t reg_temp = varTracker->getReg(temp_var);
+        mipsBuilder->addInstruction(new InstrSge(reg_temp, vals.rs, vals.rt), "");
+        mipsBuilder->addInstruction(new InstrBne(reg_temp, 0, break_to), "");
+        varTracker->removeVar(temp_var);
         varTracker->set_var_type(vals.resultTag, TokenValue::INT);
         return vals.resultTag;
     }
@@ -532,13 +513,7 @@ std::string comp_gte(const std::string& break_to, Token* token, MipsBuilder* mip
      label_false: addi $reg, $0, 0
      label_end: noop, this can be filtered out later in an optimizing step
     */
-    std::string label_false = mipsBuilder->genUnnamedLabel();
-    std::string label_end = mipsBuilder->genUnnamedLabel();
-    mipsBuilder->addInstruction(new InstrBlt(vals.rs, vals.rt, label_false), "");
-    mipsBuilder->addInstruction(new InstrAddi(vals.rd, 0, 1), "");
-    mipsBuilder->addInstruction(new InstrJ(label_end), "");
-    mipsBuilder->addInstruction(new InstrAddi(vals.rd, 0, 0), label_false);
-    mipsBuilder->addInstruction(new InstrAdd(0, 0, 0), label_end); // noop
+    mipsBuilder->addInstruction(new InstrSge(vals.rd, vals.rs, vals.rt), "");
     varTracker->set_var_type(vals.resultTag, TokenValue::INT);
     return vals.resultTag;
 }
@@ -636,8 +611,7 @@ std::string compile_array_set(Token* token, Token* value, MipsBuilder* mipsBuild
     uint8_t mem = varTracker->getReg(var);
     uint8_t value_reg = varTracker->getReg(value_str);
 
-    if (value->val_type != TokenValue::IDENTIFIER)
-        varTracker->removeVar(value_str);
+    varTracker->removeIfTemp(value_str);
 
     if (use_right_num){
         mipsBuilder->addInstruction(new InstrSw(value_reg, mem, (int16_t) right_num), "");
@@ -647,12 +621,10 @@ std::string compile_array_set(Token* token, Token* value, MipsBuilder* mipsBuild
         mipsBuilder->addInstruction(new InstrAdd(offset_reg, offset_reg, mem), "");
         mipsBuilder->addInstruction(new InstrSw(value_reg, offset_reg, 0), "");
 
-        if (addr->right->val_type != TokenValue::IDENTIFIER)
-            varTracker->removeVar(index);
+        varTracker->removeIfTemp(index);
     }
 
-    if (addr->left->val_type != TokenValue::IDENTIFIER)
-        varTracker->removeVar(var);
+    varTracker->removeIfTemp(var);
 
     return value_str;
 
@@ -671,8 +643,7 @@ std::string comp_eq(Token* token, MipsBuilder* mipsBuilder, VariableTracker* var
         uint8_t reg_b = varTracker->getReg(right);
         mipsBuilder->addInstruction(new InstrSw(reg_b, reg_a, 0), "");
 
-        if (op->right->val_type != TokenValue::IDENTIFIER)
-            varTracker->removeVar(right);
+        varTracker->removeIfTemp(right);
         return result;
     }
 
@@ -710,8 +681,7 @@ std::string comp_eq(Token* token, MipsBuilder* mipsBuilder, VariableTracker* var
 
     mipsBuilder->addInstruction(new InstrAdd(reg_a, 0, reg_b), "");
 
-    if (op->right->val_type != TokenValue::IDENTIFIER)
-        varTracker->removeVar(right);
+    varTracker->removeIfTemp(right);
 
     return left;
 }
@@ -832,6 +802,7 @@ std::string compile_inline_function_call(FunctionCallToken* call, MipsBuilder* m
         Token* arg = call->arguments[i];
         DefinitionToken* arg_name_tok = call->arg_names[i];
         std::string result = compile_op("", arg, mipsBuilder, varTracker);
+        varTracker->getReg(result);
         std::string arg_name = arg_name_tok->name;
 
         if (varTracker->var_exists(arg_name)){
@@ -851,27 +822,43 @@ std::string compile_inline_function_call(FunctionCallToken* call, MipsBuilder* m
     std::string endLabel = mipsBuilder->genUnnamedLabel();
 
     varTracker->incScope(true);
+    varTracker->set_in_inline(true);
 
     BreakScope breakScope;
     breakScope.returnLabel = endLabel;
     compile_instructions(&breakScope, func->body->expressions, mipsBuilder, varTracker);
 
+    int retvar = -1;
+    if (varTracker->var_exists("return")){
+        retvar = varTracker->getReg("return");
+    }
+
     varTracker->decScope(true);
+    varTracker->set_in_inline(false);
 
     mipsBuilder->addInstruction(new InstrAdd(0, 0, 0), endLabel);
 
-    std::string result = "";
+    std::string result;
 
     // load return value
     if (call->returnType != VOID) {
-        result = varTracker->add_temp_variable();
-        uint8_t reg_result = varTracker->getReg(result);
-        mipsBuilder->addInstruction(new InstrAdd(reg_result, 0, 2), "");
+        if(retvar != -1){
+            result = varTracker->gen_temp_var_name();
+            varTracker->add_variable(result, retvar);
+        }
+        else {
+            result = varTracker->add_temp_variable();
+            uint8_t reg = varTracker->getReg(result);
+            mipsBuilder->addInstruction(new InstrAdd(reg, 0, 2), "");
+        }
     }
 
     for (const std::string& arg : args){
-        varTracker->removeVar(arg);
+        varTracker->removeIfTemp(arg);
         varTracker->remove_alias(arg);
+    }
+    for (const auto& pair : saved_vars){
+        varTracker->renameVar(pair.second, pair.first);
     }
 
     return result;

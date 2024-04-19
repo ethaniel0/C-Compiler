@@ -1,7 +1,8 @@
 my register conventions:
 $0: 0
 $1: for pseudo-instructions (not, li, etc)
-$2 - $3: return values
+$2: return value
+$3: clock
 $4 - $7: arguments
 $8 - $27: temporary variables
 $28: heap pointer

@@ -137,6 +137,23 @@ void MipsBuilder::filterJs(){
 void MipsBuilder::simplify() {
     filterNoops();
     filterJs();
+
+    std::vector<std::string> to_remove;
+
+    // remove unused labels
+    for (auto pair : labels){
+        std::string label = pair.first;
+        bool result = false;
+        for (Instruction *instr : instructions) {
+            result |= instr->replace_target(label, label);
+        }
+        if (!result) to_remove.push_back(label);
+    }
+    for (const std::string& label : to_remove) {
+        Instruction *instr = labels[label];
+        labels.erase(label);
+        invLabels.erase(instr);
+    }
 }
 
 std::vector<Instruction *> MipsBuilder::getInstructions() {
